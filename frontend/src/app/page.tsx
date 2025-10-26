@@ -24,7 +24,7 @@ export default function Home() {
   // Get the currently selected file
   const uploadedData = selectedFileIndex !== null ? files[selectedFileIndex] : null;
 
-  const handleFileUpload = (data: UploadedData | UploadedData[]) => {
+  const handleFileUpload = (data: UploadedData | UploadedData[], initialMessage?: string) => {
     if (Array.isArray(data)) {
       // Multiple sheets uploaded at once
       setFiles(prev => [...prev, ...data]);
@@ -35,6 +35,15 @@ export default function Home() {
       setFiles(prev => [...prev, data]);
       // Automatically select the newly uploaded file
       setSelectedFileIndex(files.length);
+    }
+
+    // Add initial AI assessment message to chat if provided
+    if (initialMessage) {
+      const aiMessage: ChatMessage = {
+        role: 'assistant',
+        content: initialMessage
+      };
+      setChatMessages(prev => [...prev, aiMessage]);
     }
   };
 
@@ -71,6 +80,15 @@ export default function Home() {
             newFiles[index] = updatedFile;
             return newFiles;
           });
+
+          // Add initial AI assessment message for the switched sheet
+          if (result.initial_message) {
+            const aiMessage: ChatMessage = {
+              role: 'assistant',
+              content: result.initial_message
+            };
+            setChatMessages(prev => [...prev, aiMessage]);
+          }
         }
       } catch (error) {
         console.error('Error switching sheet:', error);

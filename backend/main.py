@@ -7,6 +7,11 @@ import traceback
 import sys
 from contextlib import redirect_stdout
 from typing import Dict, Any, List, Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 from aiAgent import ai_agent
 
 # Request models
@@ -167,7 +172,13 @@ async def upload_file(file: UploadFile = File(...)):
             current_sheet_name = "Sheet1"
             current_dataframe = df
             
-            # Return basic info about the dataset
+            # Perform automatic data quality assessment
+            quality_report = ai_agent.assess_data_quality(df, file.filename)
+            
+            # Generate formatted initial AI message
+            initial_ai_message = ai_agent.generate_initial_assessment_message(df, quality_report, file.filename)
+            
+            # Return basic info about the dataset with quality report
             return {
                 "filename": file.filename,
                 "rows": len(df),
@@ -178,7 +189,9 @@ async def upload_file(file: UploadFile = File(...)):
                 "data": df.to_dict(orient="records"),
                 "sheets": list(all_sheets.keys()),
                 "current_sheet": current_sheet_name,
-                "has_multiple_sheets": False
+                "has_multiple_sheets": False,
+                "quality_report": quality_report,
+                "initial_message": initial_ai_message
             }
         else:
             # For Excel files, read all sheets
@@ -214,7 +227,13 @@ async def upload_file(file: UploadFile = File(...)):
                     "column_names": sheet_df.columns.tolist()
                 })
             
-            # Return info about all sheets
+            # Perform automatic data quality assessment on current sheet
+            quality_report = ai_agent.assess_data_quality(current_dataframe, f"{file.filename} - {current_sheet_name}")
+            
+            # Generate formatted initial AI message
+            initial_ai_message = ai_agent.generate_initial_assessment_message(current_dataframe, quality_report, f"{file.filename} - {current_sheet_name}")
+            
+            # Return info about all sheets with quality report
             return {
                 "filename": file.filename,
                 "rows": len(current_dataframe),
@@ -226,7 +245,9 @@ async def upload_file(file: UploadFile = File(...)):
                 "sheets": sheet_names,
                 "sheets_info": sheets_info,
                 "current_sheet": current_sheet_name,
-                "has_multiple_sheets": len(sheet_names) > 1
+                "has_multiple_sheets": len(sheet_names) > 1,
+                "quality_report": quality_report,
+                "initial_message": initial_ai_message
             }
     
     except Exception as e:
@@ -504,6 +525,12 @@ async def switch_sheet(request: SwitchSheetRequest):
     current_sheet_name = request.sheet_name
     current_dataframe = all_sheets[request.sheet_name]
     
+    # Perform data quality assessment on the new sheet
+    quality_report = ai_agent.assess_data_quality(current_dataframe, request.sheet_name)
+    
+    # Generate formatted initial AI message for the new sheet
+    initial_ai_message = ai_agent.generate_initial_assessment_message(current_dataframe, quality_report, request.sheet_name)
+    
     return {
         "success": True,
         "message": f"Switched to sheet '{request.sheet_name}'",
@@ -511,6 +538,8 @@ async def switch_sheet(request: SwitchSheetRequest):
         "data": current_dataframe.to_dict(orient="records"),
         "columns": current_dataframe.columns.tolist(),
         "rows": len(current_dataframe),
-        "dtypes": current_dataframe.dtypes.astype(str).to_dict()
+        "dtypes": current_dataframe.dtypes.astype(str).to_dict(),
+        "quality_report": quality_report,
+        "initial_message": initial_ai_message
     }
 

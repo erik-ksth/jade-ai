@@ -34,7 +34,7 @@ interface FileExplorerProps {
      files: UploadedData[];
      selectedFileIndex: number | null;
      onFileSelect: (index: number) => void;
-     onFileUpload: (data: UploadedData | UploadedData[]) => void;
+     onFileUpload: (data: UploadedData | UploadedData[], initialMessage?: string) => void;
      onFileRemove: (index: number) => void;
      onFileReplace: (index: number, data: UploadedData) => void;
 }
@@ -123,7 +123,7 @@ export default function FileExplorer({
 
                     // Upload all sheets at once if no duplicates
                     if (!hasDuplicate && allSheets.length > 0) {
-                         onFileUpload(allSheets);
+                         onFileUpload(allSheets, data.initial_message);
                     }
                } else {
                     // Single sheet or CSV file
@@ -138,7 +138,7 @@ export default function FileExplorer({
                          setShowDuplicateDialog(true);
                     } else {
                          // No duplicate - upload directly
-                         onFileUpload(data);
+                         onFileUpload(data, data.initial_message);
                     }
                }
           } catch (error) {
