@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { UploadedData, ChatMessage, ChatRequest, ChatResponse, ChartData, TextElement } from "../../../shared/types";
 import DataTable from "@/components/DataTable";
 import Dashboard from "@/components/Dashboard";
@@ -204,10 +205,14 @@ export default function Home() {
       {/* Header */}
       <header className="no-print bg-white border-b border-slate-200 px-8 py-5 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-md">
-            <span className="text-white text-sm font-bold">J</span>
-          </div>
-          <h1 className="text-xl font-semibold text-slate-800 tracking-tight">Jade AI</h1>
+          <Image
+            src="/jade_ai_logo.png"
+            alt="Jade AI Logo"
+            width={200}
+            height={32}
+            className="h-8 w-auto"
+            priority
+          />
           <span className="text-sm text-slate-400 font-normal">Data Analytics</span>
         </div>
       </header>
