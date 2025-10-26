@@ -1,12 +1,23 @@
-/venv/
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+ENV/
+
+
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.pyw
-*.pyz
-*.pywz
-*.pyzw
-*.pyzwz
-*.pyzwzw
+*.py[cod]
+*$py.class
+
+# Environment variables
 .env
+.env.local
+
+# Agent data
+*.db
+*.sqlite
