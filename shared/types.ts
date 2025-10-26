@@ -57,6 +57,18 @@ export interface ChatRequest {
   chat_history: ChatMessage[];
 }
 
+export interface TextElement {
+  id: string;
+  content: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontSize?: number;
+  fontWeight?: string;
+  color?: string;
+}
+
 export interface ChatResponse {
   response: string;
   pandas_code: string | null;

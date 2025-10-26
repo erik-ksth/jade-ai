@@ -73,8 +73,16 @@ export default function DataTable({ uploadedData }: DataTableProps) {
                          />
                     </div>
                ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500">
-                         Select a file from the left panel to view data
+                    <div className="flex items-center justify-center h-full">
+                         <div className="text-center">
+                              <div className="w-16 h-16 mx-auto mb-5 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                                   <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                   </svg>
+                              </div>
+                              <h3 className="text-base font-semibold text-slate-700 mb-2">No data to display</h3>
+                              <p className="text-sm text-slate-500">Select a file from the left panel to view data</p>
+                         </div>
                     </div>
                )}
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { UploadedData, ChatMessage, ChatRequest, ChatResponse, ChartData } from "../../../shared/types";
+import { UploadedData, ChatMessage, ChatRequest, ChatResponse, ChartData, TextElement } from "../../../shared/types";
 import DataTable from "@/components/DataTable";
 import Dashboard from "@/components/Dashboard";
 import ChatAgent from "@/components/ChatAgent";
@@ -18,6 +18,7 @@ export default function Home() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [charts, setCharts] = useState<ChartData[]>([]);
+  const [textElements, setTextElements] = useState<TextElement[]>([]);
 
   // Get the currently selected file
   const uploadedData = selectedFileIndex !== null ? files[selectedFileIndex] : null;
@@ -100,6 +101,20 @@ export default function Home() {
 
   const handleRemoveChart = (index: number) => {
     setCharts(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddTextElement = (textElement: TextElement) => {
+    setTextElements(prev => [...prev, textElement]);
+  };
+
+  const handleUpdateTextElement = (id: string, updates: Partial<TextElement>) => {
+    setTextElements(prev => prev.map(elem =>
+      elem.id === id ? { ...elem, ...updates } : elem
+    ));
+  };
+
+  const handleRemoveTextElement = (id: string) => {
+    setTextElements(prev => prev.filter(elem => elem.id !== id));
   };
 
   const handleSendMessage = async (message: string) => {
@@ -185,17 +200,23 @@ export default function Home() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-slate-50">
       {/* Header */}
-      <header className="bg-white border-b px-6 py-4">
-        <h1 className="text-2xl font-bold text-gray-900">Jade AI - Data Cleaning</h1>
+      <header className="no-print bg-white border-b border-slate-200 px-8 py-5 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-md">
+            <span className="text-white text-sm font-bold">J</span>
+          </div>
+          <h1 className="text-xl font-semibold text-slate-800 tracking-tight">Jade AI</h1>
+          <span className="text-sm text-slate-400 font-normal">Data Analytics</span>
+        </div>
       </header>
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="h-full">
           {/* Left Side - File Explorer */}
-          <ResizablePanel defaultSize={15} minSize={10} collapsible={true} className="h-full">
+          <ResizablePanel defaultSize={15} minSize={10} collapsible={true} className="no-print h-full">
             <div className="h-full overflow-hidden">
               <FileExplorer
                 files={files}
@@ -209,35 +230,43 @@ export default function Home() {
           </ResizablePanel>
 
           {/* Resize Handle between File Explorer and Middle panels */}
-          <ResizableHandle />
+          <ResizableHandle className="no-print" />
 
           {/* Middle - Table & Dashboard */}
           <ResizablePanel defaultSize={55} minSize={20} collapsible={true}>
             <ResizablePanelGroup direction="vertical" className="h-full">
               {/* Data Table Panel */}
-              <ResizablePanel defaultSize={60} minSize={20} collapsible={true} className="h-full">
+              <ResizablePanel defaultSize={60} minSize={20} collapsible={true} className="no-print h-full">
                 <div className="h-full overflow-hidden">
                   <DataTable uploadedData={uploadedData} />
                 </div>
               </ResizablePanel>
 
               {/* Resize Handle between Table and Dashboard */}
-              <ResizableHandle />
+              <ResizableHandle className="no-print" />
 
               {/* Dashboard Panel */}
               <ResizablePanel defaultSize={40} minSize={20} collapsible={true} className="h-full">
-                <div className="h-full overflow-hidden">
-                  <Dashboard uploadedData={uploadedData} charts={charts} onRemoveChart={handleRemoveChart} />
+                <div className="h-full overflow-hidden dashboard-print-container">
+                  <Dashboard
+                    uploadedData={uploadedData}
+                    charts={charts}
+                    onRemoveChart={handleRemoveChart}
+                    textElements={textElements}
+                    onAddTextElement={handleAddTextElement}
+                    onUpdateTextElement={handleUpdateTextElement}
+                    onRemoveTextElement={handleRemoveTextElement}
+                  />
                 </div>
               </ResizablePanel>
             </ResizablePanelGroup>
           </ResizablePanel>
 
           {/* Resize Handle between Middle and Right sides */}
-          <ResizableHandle />
+          <ResizableHandle className="no-print" />
 
           {/* Right Side - Chat */}
-          <ResizablePanel defaultSize={30} minSize={20} collapsible={true} className="h-full">
+          <ResizablePanel defaultSize={30} minSize={20} collapsible={true} className="no-print h-full">
             <div className="h-full overflow-hidden">
               <ChatAgent
                 messages={chatMessages}

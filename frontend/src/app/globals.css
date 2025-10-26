@@ -126,28 +126,30 @@
 /* Modern Minimalist AG Grid Styling */
 .ag-theme-alpine {
   --ag-background-color: #ffffff;
-  --ag-header-background-color: #fafafa;
+  --ag-header-background-color: #f8fafc;
   --ag-odd-row-background-color: #ffffff;
   --ag-row-hover-color: #f8fafc;
   --ag-selected-row-background-color: #f1f5f9;
   --ag-border-color: #e2e8f0;
   --ag-header-foreground-color: #475569;
-  --ag-foreground-color: #1e293b;
+  --ag-foreground-color: #334155;
   --ag-secondary-foreground-color: #64748b;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter",
+    sans-serif;
 }
 
 .ag-theme-alpine .ag-header {
-  border-bottom: 1px solid #e2e8f0;
-  background: linear-gradient(to bottom, #fafafa 0%, #f1f5f9 100%);
+  border-bottom: 2px solid #e2e8f0;
+  background: linear-gradient(to bottom, #f8fafc 0%, #ffffff 100%);
 }
 
 .ag-theme-alpine .ag-header-cell {
   padding: 20px 24px !important;
   font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.025em;
-  color: #475569;
+  font-size: 13px;
+  letter-spacing: 0.015em;
+  text-transform: uppercase;
+  color: #64748b;
   border-right: none;
 }
 
@@ -164,26 +166,26 @@
 .ag-theme-alpine .ag-cell {
   line-height: 1.6;
   font-size: 14px;
-  color: #1e293b;
+  color: #334155;
   border-right: none;
   display: flex;
   align-items: center;
+  font-weight: 400;
 }
 
 .ag-theme-alpine .ag-row {
   border-bottom: 1px solid #f1f5f9;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .ag-theme-alpine .ag-row:hover {
   background-color: #f8fafc;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
 .ag-theme-alpine .ag-row-selected {
   background-color: #f1f5f9;
-  border-left: 3px solid #3b82f6;
+  border-left: 3px solid #475569;
 }
 
 .ag-theme-alpine .ag-row-selected:hover {
@@ -198,57 +200,131 @@
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 /* Modern Minimalist Pagination */
 .ag-theme-alpine .ag-paging-panel {
-  padding: 24px 32px !important;
-  border-top: 1px solid #e2e8f0;
-  background: linear-gradient(to bottom, #fafafa 0%, #ffffff 100%);
+  padding: 20px 32px !important;
+  border-top: 2px solid #e2e8f0;
+  background: #fafafa;
 }
 
 .ag-theme-alpine .ag-paging-button {
-  padding: 10px 18px !important;
-  margin: 0 6px !important;
+  padding: 8px 16px !important;
+  margin: 0 4px !important;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
   background-color: #ffffff;
   color: #475569;
   font-weight: 500;
-  font-size: 14px;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  font-size: 13px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .ag-theme-alpine .ag-paging-button:hover {
-  background-color: #f8fafc;
-  border-color: #cbd5e1;
-  transform: translateY(-1px);
+  background-color: #334155;
+  border-color: #334155;
+  color: #ffffff;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .ag-theme-alpine .ag-paging-button.ag-disabled {
-  background-color: #f1f5f9;
-  color: #94a3b8;
+  background-color: #f8fafc;
+  color: #cbd5e1;
   border-color: #e2e8f0;
   cursor: not-allowed;
-  transform: none;
   box-shadow: none;
 }
 
 .ag-theme-alpine .ag-paging-description {
-  padding: 10px 18px !important;
-  margin: 0 12px !important;
+  padding: 8px 16px !important;
+  margin: 0 8px !important;
   font-weight: 500;
-  font-size: 14px;
-  color: #475569;
+  font-size: 13px;
+  color: #64748b;
 }
 
 .ag-theme-alpine .ag-paging-row-summary-panel {
-  padding: 10px 18px !important;
-  margin: 0 12px !important;
+  padding: 8px 16px !important;
+  margin: 0 8px !important;
   font-weight: 400;
-  font-size: 14px;
+  font-size: 13px;
   color: #64748b;
+}
+
+/* Print Styles for Dashboard */
+@media print {
+  /* Hide elements that shouldn't be printed */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Reset body and page styling for print */
+  body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Make the dashboard fill the print page */
+  @page {
+    size: landscape;
+    margin: 0.5cm;
+  }
+
+  /* Make dashboard container full-page */
+  .dashboard-print-container {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow: visible !important;
+    z-index: 9999 !important;
+  }
+
+  /* Remove interactive effects for printed elements */
+  .cursor-pointer {
+    cursor: default !important;
+  }
+
+  /* Ensure text elements are not editable in print */
+  [contenteditable] {
+    cursor: default !important;
+  }
+
+  /* Remove hover effects and transitions in print */
+  * {
+    transition: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Keep shadows on cards for better visibility in print */
+  .shadow-lg,
+  .shadow-xl,
+  .shadow-2xl {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  /* Remove selection rings in print */
+  .ring-2,
+  .ring-slate-400,
+  .ring-blue-400 {
+    box-shadow: none !important;
+  }
+
+  /* Ensure proper background for cards in print */
+  .bg-white\/90,
+  .bg-white\/95 {
+    background-color: white !important;
+  }
+
+  /* Keep the grid background subtle */
+  .bg-gradient-to-br {
+    background: white !important;
+  }
 }

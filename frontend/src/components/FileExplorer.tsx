@@ -270,9 +270,9 @@ export default function FileExplorer({
 
      return (
           <div className="flex-1 p-4 h-full w-full">
-               <Card className="h-full w-full flex flex-col">
-                    <CardHeader className="flex-shrink-0">
-                         <CardTitle className="text-lg">Files</CardTitle>
+               <Card className="h-full w-full flex flex-col shadow-sm border-slate-200">
+                    <CardHeader className="flex-shrink-0 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+                         <CardTitle className="text-base font-semibold text-slate-700">Files</CardTitle>
                     </CardHeader>
                     <CardContent className="flex-1 flex flex-col min-h-0 px-3">
                          {/* Upload Button */}
@@ -289,7 +289,7 @@ export default function FileExplorer({
                               <Button
                                    asChild
                                    disabled={isLoading}
-                                   className="w-full"
+                                   className="w-full bg-slate-700 hover:bg-slate-800 text-white"
                                    size="sm"
                               >
                                    <label
@@ -304,7 +304,7 @@ export default function FileExplorer({
                          {/* File List */}
                          <div className="flex-1 overflow-y-auto space-y-1">
                               {files.length === 0 ? (
-                                   <div className="flex items-center justify-center h-full text-sm text-gray-500 text-center px-2">
+                                   <div className="flex items-center justify-center h-full text-sm text-slate-500 text-center px-2">
                                         No files uploaded yet
                                    </div>
                               ) : (
@@ -312,11 +312,11 @@ export default function FileExplorer({
                                         <div
                                              key={index}
                                              className={`
-                    group flex items-center justify-between p-2 rounded
-                    transition-colors text-sm
+                    group flex items-center justify-between p-2.5 rounded-lg
+                    transition-all duration-200 text-sm
                     ${selectedFileIndex === index
-                                                       ? 'bg-blue-100 border border-blue-300'
-                                                       : 'hover:bg-gray-100 border border-transparent'
+                                                       ? 'bg-slate-100 border border-slate-300 shadow-sm'
+                                                       : 'hover:bg-slate-50 border border-transparent hover:border-slate-200'
                                                   }
                   `}
                                         >
@@ -324,7 +324,7 @@ export default function FileExplorer({
                                                   className="flex-1 min-w-0 cursor-pointer"
                                                   onClick={() => onFileSelect(index)}
                                              >
-                                                  <div className="truncate font-medium" title={file.filename}>
+                                                  <div className="truncate font-medium text-slate-700" title={file.filename}>
                                                        {file.filename}
                                                   </div>
                                              </div>
@@ -332,10 +332,10 @@ export default function FileExplorer({
                                              <DropdownMenu>
                                                   <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                                                        <button
-                                                            className="ml-2 p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-200 rounded"
+                                                            className="ml-2 p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-200 rounded"
                                                             title="More options"
                                                        >
-                                                            <MoreVertical className="w-4 h-4 text-gray-600" />
+                                                            <MoreVertical className="w-4 h-4 text-slate-600" />
                                                        </button>
                                                   </DropdownMenuTrigger>
                                                   <DropdownMenuContent align="end" className="w-40">
