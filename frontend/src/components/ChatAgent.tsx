@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Send, Undo2 } from "lucide-react";
+import { Send } from "lucide-react";
 import { ChatMessage, UploadedData } from "../../../shared/types";
 import ReactMarkdown from "react-markdown";
 import { Components } from "react-markdown";
@@ -13,11 +13,10 @@ interface ChatAgentProps {
      messages: ChatMessage[];
      onSendMessage: (message: string) => void;
      uploadedData: UploadedData | null;
-     onDataUpdate: (data: UploadedData) => void;
      isLoading: boolean;
 }
 
-export default function ChatAgent({ messages, onSendMessage, uploadedData, onDataUpdate, isLoading }: ChatAgentProps) {
+export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoading }: ChatAgentProps) {
      const [newMessage, setNewMessage] = useState("");
      const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -82,64 +81,11 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, onDat
           setNewMessage("");
      };
 
-     const handleUndo = async () => {
-          if (!uploadedData) return;
-
-          try {
-               const response = await fetch('http://localhost:8000/undo', {
-                    method: 'POST',
-                    headers: {
-                         'Content-Type': 'application/json',
-                    }
-               });
-
-               if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-               }
-
-               const result = await response.json();
-
-               if (result.success) {
-                    const updatedData: UploadedData = {
-                         filename: uploadedData.filename,
-                         rows: result.rows,
-                         columns: result.columns.length,
-                         column_names: result.columns,
-                         dtypes: result.dtypes,
-                         preview: result.data.slice(0, 5),
-                         data: result.data
-                    };
-
-                    onDataUpdate(updatedData);
-                    onSendMessage("🔄 Last operation undone successfully!");
-               } else {
-                    onSendMessage("❌ No operations to undo");
-               }
-
-          } catch (error) {
-               console.error('Error undoing operation:', error);
-               onSendMessage(`❌ Error undoing operation: ${error}`);
-          }
-     };
-
      return (
           <div className="w-full h-full border-l border-slate-200 bg-slate-50 p-4">
                <Card className="h-full flex flex-col shadow-sm border-slate-200">
-                    <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
-                         <div className="flex items-center justify-between">
-                              <CardTitle className="text-slate-700 text-base font-semibold">AI Assistant</CardTitle>
-                              {uploadedData && (
-                                   <Button
-                                        onClick={handleUndo}
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex items-center gap-2 border-slate-300 hover:bg-slate-100 text-slate-700"
-                                   >
-                                        <Undo2 className="h-4 w-4" />
-                                        Undo
-                                   </Button>
-                              )}
-                         </div>
+                    <CardHeader className="border-b border-slate-100">
+                         <CardTitle className="text-slate-700 text-base font-semibold">AI Assistant</CardTitle>
                     </CardHeader>
                     <CardContent className="flex-1 flex flex-col overflow-y-auto">
                          {/* Messages */}

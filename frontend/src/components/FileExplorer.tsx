@@ -123,7 +123,7 @@ export default function FileExplorer({
 
                     // Upload all sheets at once if no duplicates
                     if (!hasDuplicate && allSheets.length > 0) {
-                         onFileUpload(allSheets, data.initial_message);
+                         onFileUpload(allSheets);
                     }
                } else {
                     // Single sheet or CSV file
@@ -138,7 +138,7 @@ export default function FileExplorer({
                          setShowDuplicateDialog(true);
                     } else {
                          // No duplicate - upload directly
-                         onFileUpload(data, data.initial_message);
+                         onFileUpload(data);
                     }
                }
           } catch (error) {
@@ -271,7 +271,7 @@ export default function FileExplorer({
      return (
           <div className="flex-1 p-4 h-full w-full">
                <Card className="h-full w-full flex flex-col shadow-sm border-slate-200">
-                    <CardHeader className="flex-shrink-0 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+                    <CardHeader className="flex-shrink-0 border-b border-slate-100 ">
                          <CardTitle className="text-base font-semibold text-slate-700">Files</CardTitle>
                     </CardHeader>
                     <CardContent className="flex-1 flex flex-col min-h-0 px-3">
