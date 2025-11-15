@@ -2,12 +2,14 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Send } from "lucide-react";
+import { Send, Copy, Check, Sparkles } from "lucide-react";
 import { ChatMessage, UploadedData } from "../../../shared/types";
 import ReactMarkdown from "react-markdown";
 import { Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface ChatAgentProps {
      messages: ChatMessage[];
@@ -18,140 +20,182 @@ interface ChatAgentProps {
 
 export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoading }: ChatAgentProps) {
      const [newMessage, setNewMessage] = useState("");
+     const [copiedCode, setCopiedCode] = useState<number | null>(null);
      const messagesEndRef = useRef<HTMLDivElement>(null);
+     const inputRef = useRef<HTMLInputElement>(null);
 
      // Auto-scroll to bottom when messages change
      useEffect(() => {
           messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
      }, [messages, isLoading]);
 
-     // Custom components for markdown rendering
-     const markdownComponents: Components = {
+     // Auto-focus input when data is uploaded
+     useEffect(() => {
+          if (uploadedData && !isLoading) {
+               inputRef.current?.focus();
+          }
+     }, [uploadedData]);
+
+     // Auto-focus input when loading completes
+     useEffect(() => {
+          if (!isLoading && uploadedData) {
+               inputRef.current?.focus();
+          }
+     }, [isLoading, uploadedData]);
+
+     // Copy code to clipboard
+     const copyCode = (code: string, index: number) => {
+          navigator.clipboard.writeText(code);
+          setCopiedCode(index);
+          setTimeout(() => setCopiedCode(null), 2000);
+     };
+
+     // Custom components for markdown rendering - accepts isUserMessage to conditionally style
+     const getMarkdownComponents = (isUserMessage: boolean): Components => ({
           code: (props) => {
-               const { children, className } = props;
-               const isInline = !className?.includes('language-');
+               const { children, className, ...rest } = props;
+               const match = /language-(\w+)/.exec(className || '');
+               const isInline = !match;
+               const codeString = String(children).replace(/\n$/, '');
+               const codeIndex = Math.random(); // Unique ID for copy button
 
                if (isInline) {
                     return (
-                         <code className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded text-sm font-mono border border-slate-200">
+                         <code className="bg-slate-100 text-rose-600 px-1.5 py-0.5 rounded text-sm font-mono border border-slate-200">
                               {children}
                          </code>
                     );
                }
+
                return (
-                    <div className="bg-slate-900 text-emerald-400 p-4 rounded-lg font-mono text-sm border border-slate-700 shadow-inner">
-                         <pre className="whitespace-pre-wrap overflow-x-auto">
-                              {children}
-                         </pre>
+                    <div className="relative group my-4">
+                         <div className="absolute right-2 top-2 z-10">
+                              <button
+                                   onClick={() => copyCode(codeString, codeIndex)}
+                                   className="opacity-0 group-hover:opacity-100 transition-opacity bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs flex items-center gap-1.5 shadow-lg"
+                              >
+                                   {copiedCode === codeIndex ? (
+                                        <>
+                                             <Check className="h-3 w-3" />
+                                             <span>Copied!</span>
+                                        </>
+                                   ) : (
+                                        <>
+                                             <Copy className="h-3 w-3" />
+                                             <span>Copy</span>
+                                        </>
+                                   )}
+                              </button>
+                         </div>
+                         <SyntaxHighlighter
+                              language={match ? match[1] : 'python'}
+                              style={vscDarkPlus}
+                              customStyle={{
+                                   margin: '0',
+                                   borderRadius: '0.5rem',
+                                   fontSize: '0.875rem',
+                                   padding: '1rem',
+                                   border: '1px solid #334155',
+                              } as any}
+                              {...rest}
+                         >
+                              {codeString}
+                         </SyntaxHighlighter>
                     </div>
                );
           },
           p: ({ children }) => (
-               <p className="mb-2 last:mb-0">{children}</p>
+               <p className={`mb-3 last:mb-0 leading-relaxed ${isUserMessage ? 'text-white' : 'text-slate-700'}`}>{children}</p>
           ),
           strong: ({ children }) => (
-               <strong className="font-semibold">{children}</strong>
+               <strong className={`font-semibold ${isUserMessage ? 'text-white' : 'text-slate-900'}`}>{children}</strong>
           ),
           em: ({ children }) => (
-               <em className="italic">{children}</em>
+               <em className={`italic ${isUserMessage ? 'text-slate-200' : 'text-slate-600'}`}>{children}</em>
           ),
           ul: ({ children }) => (
-               <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>
+               <ul className="list-disc list-outside ml-4 mb-3 space-y-1.5">{children}</ul>
           ),
           ol: ({ children }) => (
-               <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>
+               <ol className="list-decimal list-outside ml-4 mb-3 space-y-1.5">{children}</ol>
           ),
           li: ({ children }) => (
-               <li className="text-sm">{children}</li>
+               <li className={`text-sm leading-relaxed pl-1 ${isUserMessage ? 'text-white' : 'text-slate-700'}`}>{children}</li>
           ),
           h1: ({ children }) => (
-               <h1 className="text-lg font-bold mb-2">{children}</h1>
+               <h1 className={`text-xl font-bold mb-3 mt-4 first:mt-0 ${isUserMessage ? 'text-white' : 'text-slate-900'}`}>{children}</h1>
           ),
           h2: ({ children }) => (
-               <h2 className="text-base font-bold mb-2">{children}</h2>
+               <h2 className={`text-lg font-bold mb-2 mt-3 first:mt-0 ${isUserMessage ? 'text-white' : 'text-slate-900'}`}>{children}</h2>
           ),
           h3: ({ children }) => (
-               <h3 className="text-sm font-bold mb-1">{children}</h3>
+               <h3 className={`text-base font-semibold mb-2 mt-2 first:mt-0 ${isUserMessage ? 'text-white' : 'text-slate-800'}`}>{children}</h3>
           ),
-     };
+          table: ({ children }) => (
+               <div className="overflow-x-auto my-4 rounded-lg border border-slate-200 shadow-sm">
+                    <table className="min-w-full divide-y divide-slate-200">{children}</table>
+               </div>
+          ),
+          thead: ({ children }) => (
+               <thead className="bg-slate-50">{children}</thead>
+          ),
+          tbody: ({ children }) => (
+               <tbody className="bg-white divide-y divide-slate-200">{children}</tbody>
+          ),
+          tr: ({ children }) => (
+               <tr>{children}</tr>
+          ),
+          th: ({ children }) => (
+               <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-b-2 border-slate-300 ${isUserMessage ? 'text-slate-200 bg-slate-600' : 'text-slate-700 bg-slate-100'}`}>{children}</th>
+          ),
+          td: ({ children }) => (
+               <td className={`px-4 py-3 text-sm border-b border-slate-100 ${isUserMessage ? 'text-white' : 'text-slate-700'}`}>{children}</td>
+          ),
+          blockquote: ({ children }) => (
+               <blockquote className={`border-l-4 pl-4 my-3 italic ${isUserMessage ? 'border-slate-500 text-slate-200' : 'border-slate-300 text-slate-600'}`}>{children}</blockquote>
+          ),
+          hr: () => (
+               <hr className={`my-4 ${isUserMessage ? 'border-slate-500' : 'border-slate-200'}`} />
+          ),
+     });
 
      const handleSendMessage = () => {
           if (!newMessage.trim()) return;
           onSendMessage(newMessage);
           setNewMessage("");
+          // Focus back to input after sending
+          setTimeout(() => inputRef.current?.focus(), 100);
      };
 
      return (
-          <div className="w-full h-full border-l border-slate-200 bg-slate-50 p-4">
-               <Card className="h-full flex flex-col shadow-sm border-slate-200">
-                    <CardHeader className="border-b border-slate-100">
-                         <CardTitle className="text-slate-700 text-base font-semibold">AI Assistant</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-1 flex flex-col overflow-y-auto">
+          <div className="w-full h-full border-l border-slate-200 bg-slate-50 p-3">
+               <div className="h-full flex flex-col">
+                    <div className="flex-shrink-0 pb-3 px-1">
+                         <div className="flex items-center justify-end gap-2">
+                              <Sparkles className="h-5 w-5 text-slate-700" />
+                         </div>
+                    </div>
+                    <div className="flex-1 flex flex-col overflow-y-auto px-1">
                          {/* Messages */}
-                         <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+                         <div className="flex-1 overflow-y-auto space-y-3 mb-3 pr-2">
                               {messages.map((message, index) => (
                                    <div key={index} className="space-y-2">
                                         {/* Message Content */}
                                         <div
-                                             className={`p-4 rounded-lg shadow-sm ${message.role === 'user'
-                                                  ? 'bg-slate-700 text-white ml-8 border border-slate-600'
-                                                  : 'bg-white mr-8 border border-slate-200'
-                                                  }`}
+                                             className={message.role === 'user'
+                                                  ? 'p-3 rounded-lg shadow-sm bg-slate-700 text-white ml-8 border border-slate-600'
+                                                  : 'py-1'
+                                             }
                                         >
                                              <div className="prose prose-sm max-w-none">
-                                                  <ReactMarkdown components={markdownComponents}>
+                                                  <ReactMarkdown
+                                                       components={getMarkdownComponents(message.role === 'user')}
+                                                       remarkPlugins={[remarkGfm]}
+                                                  >
                                                        {message.content}
                                                   </ReactMarkdown>
                                              </div>
                                         </div>
-
-
-                                        {/* Execution Status */}
-                                        {message.data_updated && (
-                                             <div className="mr-8">
-                                                  <div className="bg-emerald-50 text-emerald-800 p-3 rounded-lg text-sm flex items-center gap-2 border border-emerald-200 shadow-sm">
-                                                       <span>✓</span>
-                                                       <span className="font-medium">Code executed successfully - Data updated</span>
-                                                  </div>
-                                             </div>
-                                        )}
-
-                                        {/* Print Output Results */}
-                                        {message.print_output && (
-                                             <div className="mr-8">
-                                                  <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg shadow-sm">
-                                                       <div className="text-slate-700 text-sm font-semibold mb-2 flex items-center gap-2">
-                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                                            </svg>
-                                                            <span>Code Output:</span>
-                                                       </div>
-                                                       <div className="bg-slate-900 text-emerald-400 p-3 rounded-lg font-mono text-xs overflow-x-auto shadow-inner">
-                                                            <pre className="whitespace-pre-wrap">{message.print_output}</pre>
-                                                       </div>
-                                                  </div>
-                                             </div>
-                                        )}
-
-                                        {/* Narrative Output */}
-                                        {message.narrative_output && (
-                                             <div className="mr-8">
-                                                  <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg shadow-sm">
-                                                       <div className="text-blue-800 text-sm font-semibold mb-2 flex items-center gap-2">
-                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                            </svg>
-                                                            <span>What this means:</span>
-                                                       </div>
-                                                       <div className="text-blue-900 text-sm leading-relaxed prose prose-sm max-w-none">
-                                                            <ReactMarkdown components={markdownComponents}>
-                                                                 {message.narrative_output}
-                                                            </ReactMarkdown>
-                                                       </div>
-                                                  </div>
-                                             </div>
-                                        )}
 
                                         {/* Error Status */}
                                         {message.error && (
@@ -170,7 +214,7 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
 
                          {/* Loading Indicator */}
                          {isLoading && (
-                              <div className="flex items-center justify-center py-4">
+                              <div className="flex items-center justify-center py-2">
                                    <div className="flex items-center gap-3 text-slate-600">
                                         <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-300 border-t-slate-700"></div>
                                         <span className="text-sm font-medium">AI is thinking...</span>
@@ -179,9 +223,9 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                          )}
 
                          {/* Input */}
-                         <div className="space-y-3">
+                         <div className="space-y-2">
                               {/* Selected File Indicator */}
-                              <div className="flex items-center justify-between px-1">
+                              <div className="flex items-center justify-between">
                                    {uploadedData ? (
                                         <div className="flex items-center gap-2 text-xs">
                                              <span className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-medium truncate max-w-[200px] border border-slate-200" title={uploadedData.filename}>
@@ -197,6 +241,7 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
 
                               <div className="flex gap-2">
                                    <Input
+                                        ref={inputRef}
                                         value={newMessage}
                                         onChange={(e) => setNewMessage(e.target.value)}
                                         placeholder={uploadedData ? "Ask about your data..." : "Select a file first..."}
@@ -214,8 +259,8 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                                    </Button>
                               </div>
                          </div>
-                    </CardContent>
-               </Card>
+                    </div>
+               </div>
           </div>
      );
 }

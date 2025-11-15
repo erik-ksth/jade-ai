@@ -196,7 +196,7 @@ export default function Dashboard({
                     style={{ zIndex }}
                >
                     <div
-                         className={`relative h-full w-full p-4 rounded-lg backdrop-blur-sm bg-white/90 border border-slate-200 cursor-pointer transition-all duration-300 ${isSelected
+                         className={`relative h-full w-full p-2 rounded-lg backdrop-blur-sm bg-white/90 border border-slate-200 cursor-pointer transition-all duration-300 ${isSelected
                               ? 'ring-2 ring-slate-400 shadow-2xl shadow-slate-200/50 border-slate-300'
                               : 'shadow-lg shadow-slate-100 hover:shadow-xl hover:shadow-slate-200/50 hover:border-slate-300'
                               }`}
@@ -390,7 +390,7 @@ export default function Dashboard({
                               <CardHeader className="cursor-move border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
                                    <CardTitle className="text-slate-700 text-base font-semibold">{chartTitle}</CardTitle>
                               </CardHeader>
-                              <CardContent className="h-[calc(100%-80px)] p-6">
+                              <CardContent className="h-[calc(100%-80px)] p-3">
                                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                    <ChartComponent data={displayChartData as any} options={chartOptions} />
                               </CardContent>
@@ -429,7 +429,7 @@ export default function Dashboard({
                />
 
                {/* Action Buttons */}
-               <div className="absolute bottom-4 right-4 z-30 flex gap-3 no-print">
+               <div className="absolute bottom-2 right-2 z-30 flex gap-2 no-print">
                     {/* Print Button */}
                     <Button
                          onClick={handlePrint}

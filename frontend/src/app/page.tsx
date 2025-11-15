@@ -1,16 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { UploadedData, ChatMessage, ChatRequest, ChatResponse, ChartData, TextElement } from "../../../shared/types";
 import DataTable from "@/components/DataTable";
 import Dashboard from "@/components/Dashboard";
 import ChatAgent from "@/components/ChatAgent";
 import FileExplorer from "@/components/FileExplorer";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { PanelLeftClose, PanelRightClose, PanelTopClose, PanelBottomClose, LayoutGrid } from "lucide-react";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
+  ImperativePanelHandle,
 } from "@/components/ui/resizable";
 
 export default function Home() {
@@ -20,6 +30,73 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [charts, setCharts] = useState<ChartData[]>([]);
   const [textElements, setTextElements] = useState<TextElement[]>([]);
+
+  // Refs for collapsible panels
+  const fileExplorerPanelRef = useRef<ImperativePanelHandle>(null);
+  const dataTablePanelRef = useRef<ImperativePanelHandle>(null);
+  const dashboardPanelRef = useRef<ImperativePanelHandle>(null);
+  const chatPanelRef = useRef<ImperativePanelHandle>(null);
+
+  // Track panel collapsed states
+  const [isFileExplorerCollapsed, setIsFileExplorerCollapsed] = useState(false);
+  const [isDataTableCollapsed, setIsDataTableCollapsed] = useState(false);
+  const [isDashboardCollapsed, setIsDashboardCollapsed] = useState(false);
+  const [isChatCollapsed, setIsChatCollapsed] = useState(false);
+
+  // Keyboard shortcuts for toggling panels
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if Cmd (Mac) or Ctrl (Windows/Linux) is pressed
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+
+      if (!isCmdOrCtrl) return;
+
+      switch (e.key) {
+        case '1': // Cmd/Ctrl + 1: Toggle Files
+          e.preventDefault();
+          if (isFileExplorerCollapsed) {
+            fileExplorerPanelRef.current?.expand();
+          } else {
+            fileExplorerPanelRef.current?.collapse();
+          }
+          break;
+        case '2': // Cmd/Ctrl + 2: Toggle Data
+          e.preventDefault();
+          if (isDataTableCollapsed) {
+            dataTablePanelRef.current?.expand();
+          } else {
+            dataTablePanelRef.current?.collapse();
+          }
+          break;
+        case '3': // Cmd/Ctrl + 3: Toggle Dashboard
+          e.preventDefault();
+          if (isDashboardCollapsed) {
+            dashboardPanelRef.current?.expand();
+          } else {
+            dashboardPanelRef.current?.collapse();
+          }
+          break;
+        case '4': // Cmd/Ctrl + 4: Toggle AI Chat
+          e.preventDefault();
+          if (isChatCollapsed) {
+            chatPanelRef.current?.expand();
+          } else {
+            chatPanelRef.current?.collapse();
+          }
+          break;
+        case '0': // Cmd/Ctrl + 0: Show All Panels
+          e.preventDefault();
+          fileExplorerPanelRef.current?.expand();
+          dataTablePanelRef.current?.expand();
+          dashboardPanelRef.current?.expand();
+          chatPanelRef.current?.expand();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFileExplorerCollapsed, isDataTableCollapsed, isDashboardCollapsed, isChatCollapsed]);
 
   // Get the currently selected file
   const uploadedData = selectedFileIndex !== null ? files[selectedFileIndex] : null;
@@ -124,6 +201,15 @@ export default function Home() {
     setChatMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
+    // Create empty assistant message for streaming
+    const assistantMessage: ChatMessage = {
+      role: 'assistant',
+      content: '',
+      has_code: false,
+      data_updated: false
+    };
+    setChatMessages(prev => [...prev, assistantMessage]);
+
     try {
       // Prepare chat request
       const chatRequest: ChatRequest = {
@@ -131,8 +217,8 @@ export default function Home() {
         chat_history: chatMessages
       };
 
-      // Send to new chat endpoint
-      const response = await fetch('http://localhost:8000/chat', {
+      // Connect to streaming endpoint
+      const response = await fetch('http://localhost:8000/chat/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -144,57 +230,111 @@ export default function Home() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: ChatResponse = await response.json();
+      // Read streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
 
-      // Create assistant message with full response
-      const assistantMessage: ChatMessage = {
-        role: 'assistant',
-        content: result.response,
-        pandas_code: result.pandas_code || undefined,
-        has_code: result.has_code,
-        data_updated: result.data_updated,
-        error: result.error || undefined,
-        print_output: result.print_output || undefined,
-        narrative_output: result.narrative_output || undefined,
-        chart_data: result.chart_data || undefined
-      };
-
-      // Add assistant message to chat
-      setChatMessages(prev => [...prev, assistantMessage]);
-
-      // If chart data was created, add it to the charts array
-      if (result.chart_data) {
-        setCharts(prev => [...prev, result.chart_data!]);
+      if (!reader) {
+        throw new Error('No reader available');
       }
 
-      // If data was updated, update the selected file
-      if (result.data_updated && result.updated_data && selectedFileIndex !== null) {
-        const updatedData: UploadedData = {
-          filename: uploadedData?.filename || "Modified Data",
-          rows: result.updated_data.rows,
-          columns: result.updated_data.columns.length,
-          column_names: result.updated_data.columns,
-          dtypes: result.updated_data.dtypes,
-          preview: result.updated_data.data.slice(0, 5),
-          data: result.updated_data.data,
-          sheet_name: uploadedData?.sheet_name,
-          original_filename: uploadedData?.original_filename
-        };
+      let buffer = '';
 
-        setFiles(prev => {
-          const newFiles = [...prev];
-          newFiles[selectedFileIndex] = updatedData;
-          return newFiles;
-        });
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+
+            if (data === '[DONE]') {
+              break;
+            }
+
+            try {
+              const event = JSON.parse(data);
+
+              if (event.type === 'status' || event.type === 'response') {
+                // Append content to assistant message in real-time
+                setChatMessages(prev => {
+                  const newMessages = [...prev];
+                  const lastIndex = newMessages.length - 1;
+                  if (newMessages[lastIndex].role === 'assistant') {
+                    // Create a new object to avoid mutation issues
+                    newMessages[lastIndex] = {
+                      ...newMessages[lastIndex],
+                      content: newMessages[lastIndex].content + event.content
+                    };
+                  }
+                  return newMessages;
+                });
+              } else if (event.type === 'complete') {
+                // Update with final data
+                setChatMessages(prev => {
+                  const newMessages = [...prev];
+                  const lastIndex = newMessages.length - 1;
+                  if (newMessages[lastIndex].role === 'assistant') {
+                    // Create a new object to avoid mutation issues
+                    newMessages[lastIndex] = {
+                      ...newMessages[lastIndex],
+                      data_updated: event.data_updated,
+                      chart_data: event.chart_data,
+                      error: event.error
+                    };
+                  }
+                  return newMessages;
+                });
+
+                // If chart data was created, add it to the charts array
+                if (event.chart_data) {
+                  setCharts(prev => [...prev, event.chart_data]);
+                }
+
+                // If data was updated, update the selected file
+                if (event.data_updated && event.updated_data && selectedFileIndex !== null) {
+                  const updatedData: UploadedData = {
+                    filename: uploadedData?.filename || "Modified Data",
+                    rows: event.updated_data.rows,
+                    columns: event.updated_data.columns.length,
+                    column_names: event.updated_data.columns,
+                    dtypes: event.updated_data.dtypes,
+                    preview: event.updated_data.data.slice(0, 5),
+                    data: event.updated_data.data,
+                    sheet_name: uploadedData?.sheet_name,
+                    original_filename: uploadedData?.original_filename
+                  };
+
+                  setFiles(prev => {
+                    const newFiles = [...prev];
+                    newFiles[selectedFileIndex] = updatedData;
+                    return newFiles;
+                  });
+                }
+              }
+            } catch (parseError) {
+              console.error('Error parsing event:', parseError);
+            }
+          }
+        }
       }
 
     } catch (error) {
       console.error('Error sending message to backend:', error);
-      setChatMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `❌ Error connecting to backend: ${error}`,
-        error: String(error)
-      }]);
+      setChatMessages(prev => {
+        const newMessages = [...prev];
+        const lastMessage = newMessages[newMessages.length - 1];
+        if (lastMessage.role === 'assistant' && !lastMessage.content) {
+          lastMessage.content = `❌ Error connecting to backend: ${error}`;
+          lastMessage.error = String(error);
+        }
+        return newMessages;
+      });
     } finally {
       setIsLoading(false);
     }
@@ -203,17 +343,96 @@ export default function Home() {
   return (
     <div className="h-screen flex flex-col bg-slate-50">
       {/* Header */}
-      <header className="no-print bg-white border-b border-slate-200 px-8 py-5 shadow-sm">
-        <div className="flex items-center gap-3">
+      <header className="no-print bg-white border-b border-slate-200 px-4 py-2 shadow-sm">
+        <div className="flex items-center justify-between">
           <Image
             src="/jade_ai_logo.png"
             alt="Jade AI Logo"
-            width={200}
-            height={32}
-            className="h-8 w-auto"
+            width={150}
+            height={24}
+            className="h-5 w-auto"
             priority
           />
-          <span className="text-sm text-slate-400 font-normal">Data Analytics</span>
+
+          {/* Current File Name */}
+          <div className="flex-1 flex items-center justify-center px-4">
+            {uploadedData ? (
+              <div className="flex items-center gap-2 text-sm text-slate-700">
+                <span className="font-medium">{uploadedData.filename}</span>
+              </div>
+            ) : (
+              <span className="text-sm text-slate-400">No file selected</span>
+            )}
+          </div>
+
+          {/* Panel Toggle Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <LayoutGrid className="h-4 w-4" />
+                Panels
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => {
+                if (isFileExplorerCollapsed) {
+                  fileExplorerPanelRef.current?.expand();
+                } else {
+                  fileExplorerPanelRef.current?.collapse();
+                }
+              }}>
+                <PanelLeftClose className="h-4 w-4 mr-2" />
+                <span className="flex-1">{isFileExplorerCollapsed ? 'Show Files' : 'Hide Files'}</span>
+                <span className="text-xs text-slate-500">⌘1</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                if (isDataTableCollapsed) {
+                  dataTablePanelRef.current?.expand();
+                } else {
+                  dataTablePanelRef.current?.collapse();
+                }
+              }}>
+                <PanelTopClose className="h-4 w-4 mr-2" />
+                <span className="flex-1">{isDataTableCollapsed ? 'Show Data' : 'Hide Data'}</span>
+                <span className="text-xs text-slate-500">⌘2</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                if (isDashboardCollapsed) {
+                  dashboardPanelRef.current?.expand();
+                } else {
+                  dashboardPanelRef.current?.collapse();
+                }
+              }}>
+                <PanelBottomClose className="h-4 w-4 mr-2" />
+                <span className="flex-1">{isDashboardCollapsed ? 'Show Dashboard' : 'Hide Dashboard'}</span>
+                <span className="text-xs text-slate-500">⌘3</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                if (isChatCollapsed) {
+                  chatPanelRef.current?.expand();
+                } else {
+                  chatPanelRef.current?.collapse();
+                }
+              }}>
+                <PanelRightClose className="h-4 w-4 mr-2" />
+                <span className="flex-1">{isChatCollapsed ? 'Show AI Chat' : 'Hide AI Chat'}</span>
+                <span className="text-xs text-slate-500">⌘4</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  fileExplorerPanelRef.current?.expand();
+                  dataTablePanelRef.current?.expand();
+                  dashboardPanelRef.current?.expand();
+                  chatPanelRef.current?.expand();
+                }}
+              >
+                <LayoutGrid className="h-4 w-4 mr-2" />
+                <span className="flex-1">Show All Panels</span>
+                <span className="text-xs text-slate-500">⌘0</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
@@ -221,7 +440,15 @@ export default function Home() {
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="h-full">
           {/* Left Side - File Explorer */}
-          <ResizablePanel defaultSize={15} minSize={10} collapsible={true} className="no-print h-full">
+          <ResizablePanel
+            ref={fileExplorerPanelRef}
+            defaultSize={15}
+            minSize={10}
+            collapsible={true}
+            onCollapse={() => setIsFileExplorerCollapsed(true)}
+            onExpand={() => setIsFileExplorerCollapsed(false)}
+            className="no-print h-full"
+          >
             <div className="h-full overflow-hidden">
               <FileExplorer
                 files={files}
@@ -241,7 +468,15 @@ export default function Home() {
           <ResizablePanel defaultSize={55} minSize={20} collapsible={true}>
             <ResizablePanelGroup direction="vertical" className="h-full">
               {/* Data Table Panel */}
-              <ResizablePanel defaultSize={60} minSize={20} collapsible={true} className="no-print h-full">
+              <ResizablePanel
+                ref={dataTablePanelRef}
+                defaultSize={60}
+                minSize={20}
+                collapsible={true}
+                onCollapse={() => setIsDataTableCollapsed(true)}
+                onExpand={() => setIsDataTableCollapsed(false)}
+                className="no-print h-full"
+              >
                 <div className="h-full overflow-hidden">
                   <DataTable uploadedData={uploadedData} />
                 </div>
@@ -251,7 +486,15 @@ export default function Home() {
               <ResizableHandle className="no-print" />
 
               {/* Dashboard Panel */}
-              <ResizablePanel defaultSize={40} minSize={20} collapsible={true} className="h-full">
+              <ResizablePanel
+                ref={dashboardPanelRef}
+                defaultSize={40}
+                minSize={20}
+                collapsible={true}
+                onCollapse={() => setIsDashboardCollapsed(true)}
+                onExpand={() => setIsDashboardCollapsed(false)}
+                className="h-full"
+              >
                 <div className="h-full overflow-hidden dashboard-print-container">
                   <Dashboard
                     uploadedData={uploadedData}
@@ -271,7 +514,15 @@ export default function Home() {
           <ResizableHandle className="no-print" />
 
           {/* Right Side - Chat */}
-          <ResizablePanel defaultSize={30} minSize={20} collapsible={true} className="no-print h-full">
+          <ResizablePanel
+            ref={chatPanelRef}
+            defaultSize={30}
+            minSize={20}
+            collapsible={true}
+            onCollapse={() => setIsChatCollapsed(true)}
+            onExpand={() => setIsChatCollapsed(false)}
+            className="no-print h-full"
+          >
             <div className="h-full overflow-hidden">
               <ChatAgent
                 messages={chatMessages}

@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
      Dialog,
@@ -269,14 +268,14 @@ export default function FileExplorer({
      };
 
      return (
-          <div className="flex-1 p-4 h-full w-full">
-               <Card className="h-full w-full flex flex-col shadow-sm border-slate-200">
-                    <CardHeader className="flex-shrink-0 border-b border-slate-100 ">
-                         <CardTitle className="text-base font-semibold text-slate-700">Files</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-1 flex flex-col min-h-0 px-3">
+          <div className="flex-1 p-3 h-full w-full">
+               <div className="h-full w-full flex flex-col">
+                    <div className="flex-shrink-0 pb-3 px-1">
+                         <h2 className="text-base font-semibold text-slate-700">Files</h2>
+                    </div>
+                    <div className="flex-1 flex flex-col min-h-0 px-1">
                          {/* Upload Button */}
-                         <div className="flex-shrink-0 mb-3">
+                         <div className="flex-shrink-0 mb-2">
                               <Input
                                    ref={fileInputRef}
                                    type="file"
@@ -312,7 +311,7 @@ export default function FileExplorer({
                                         <div
                                              key={index}
                                              className={`
-                    group flex items-center justify-between p-2.5 rounded-lg
+                    group flex items-center justify-between p-1.5 rounded-lg
                     transition-all duration-200 text-sm
                     ${selectedFileIndex === index
                                                        ? 'bg-slate-100 border border-slate-300 shadow-sm'
@@ -375,8 +374,8 @@ export default function FileExplorer({
                                    ))
                               )}
                          </div>
-                    </CardContent>
-               </Card>
+                    </div>
+               </div>
 
                {/* Duplicate File Dialog */}
                <Dialog open={showDuplicateDialog} onOpenChange={(open) => !open && handleCancelUpload()}>

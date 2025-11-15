@@ -144,7 +144,7 @@
 }
 
 .ag-theme-alpine .ag-header-cell {
-  padding: 20px 24px !important;
+  padding: 8px 12px !important;
   font-weight: 600;
   font-size: 13px;
   letter-spacing: 0.015em;
@@ -205,14 +205,14 @@
 
 /* Modern Minimalist Pagination */
 .ag-theme-alpine .ag-paging-panel {
-  padding: 20px 32px !important;
+  padding: 8px 16px !important;
   border-top: 2px solid #e2e8f0;
   background: #fafafa;
 }
 
 .ag-theme-alpine .ag-paging-button {
-  padding: 8px 16px !important;
-  margin: 0 4px !important;
+  padding: 4px 12px !important;
+  margin: 0 2px !important;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
   background-color: #ffffff;
@@ -239,16 +239,16 @@
 }
 
 .ag-theme-alpine .ag-paging-description {
-  padding: 8px 16px !important;
-  margin: 0 8px !important;
+  padding: 4px 8px !important;
+  margin: 0 4px !important;
   font-weight: 500;
   font-size: 13px;
   color: #64748b;
 }
 
 .ag-theme-alpine .ag-paging-row-summary-panel {
-  padding: 8px 16px !important;
-  margin: 0 8px !important;
+  padding: 4px 8px !important;
+  margin: 0 4px !important;
   font-weight: 400;
   font-size: 13px;
   color: #64748b;

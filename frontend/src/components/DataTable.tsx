@@ -50,7 +50,7 @@ export default function DataTable({ uploadedData }: DataTableProps) {
      }, [uploadedData]);
 
      return (
-          <div className="flex-1 p-4 h-full w-full">
+          <div className="flex-1 p-2 h-full w-full">
                {uploadedData ? (
                     <div className="ag-theme-alpine h-full w-full">
                          <AgGridReact
@@ -63,8 +63,8 @@ export default function DataTable({ uploadedData }: DataTableProps) {
                                    headerClass: 'ag-header-cell-padding',
                                    editable: true,
                               }}
-                              rowHeight={40}
-                              headerHeight={64}
+                              rowHeight={32}
+                              headerHeight={40}
                               pagination={true}
                               paginationPageSize={100}
                               rowSelection="multiple"
