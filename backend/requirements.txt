@@ -35,3 +35,6 @@ uagents==0.22.10
 urllib3==2.5.0
 uvicorn==0.37.0
 websockets==15.0.1
+langgraph==0.2.45
+langchain-core==0.3.21
+langchain-groq==0.2.1
