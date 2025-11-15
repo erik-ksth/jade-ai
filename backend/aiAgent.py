@@ -1,6 +1,7 @@
 import os
 import re
 from typing import Dict, Any, Optional, List
+import pandas as pd
 from groq import Groq
 
 class AIAgent:
@@ -9,7 +10,7 @@ class AIAgent:
             api_key=os.environ.get("GROQ_API_KEY")
         )
         # Available Groq models: llama-3.3-70b-versatile, llama-3.1-8b-instant, mixtral-8x7b-32768, gemma2-9b-it
-        self.model = "openai/gpt-oss-20b"
+        self.model = "openai/gpt-oss-120b"
     
     def _create_dataframe_context(self, df_info: Dict[str, Any]) -> str:
         """Create a context string describing the current dataframe"""
@@ -50,6 +51,17 @@ class AIAgent:
 - Use proper line breaks between paragraphs
 - Use bullet points or numbered lists when appropriate
 - Structure your responses with clear paragraphs
+- **When creating tables, use proper Markdown table syntax:**
+  - Each row must be on a separate line
+  - Use pipes (|) to separate columns
+  - Include a header separator row with dashes (---)
+  - Example:
+    ```
+    | Column 1 | Column 2 | Column 3 |
+    |----------|----------|----------|
+    | Value 1  | Value 2  | Value 3  |
+    | Value 4  | Value 5  | Value 6  |
+    ```
 
 ## Code Generation Rules:
 - **Always wrap pandas code in markdown code blocks**: ```python
@@ -60,10 +72,51 @@ class AIAgent:
 - **Be specific and actionable** - provide code that can be executed immediately
 - **Handle edge cases** - check for nulls, missing columns, data types
 
-## Response Structure:
-1. **Explain** what you're going to do and why (use proper markdown formatting)
-2. **Provide code** in ```python blocks when data manipulation is needed
-3. **Describe** the expected outcome of the operation
+## Response Structure (IMPORTANT - Follow This Format):
+
+**For ALL data manipulation requests, structure your response EXACTLY like this:**
+
+🤔 **Analyzing your request...**
+
+[Brief 1-2 sentence explanation of what you understand the user wants]
+
+⚙️ **Executing...**
+
+```python
+# Your pandas code here with comments
+df.operation(inplace=True)
+print(f"Result: {df.shape}")
+```
+
+✅ **Done!** [Brief summary of what was accomplished]
+
+• Key metric or change 1
+• Key metric or change 2
+• Key metric or change 3
+
+**Example:**
+
+User: "remove the first row"
+
+Your response:
+🤔 **Analyzing your request...**
+
+I need to remove the first row from your dataset.
+
+⚙️ **Executing...**
+
+```python
+# Drop the first row (index 0)
+df.drop(df.index[0], inplace=True)
+print(f"New shape: {df.shape}")
+print(f"First row is now: {df.iloc[0].to_dict()}")
+```
+
+✅ **Done!** I removed the first row from your dataset.
+
+• Dataset: 8,158 → 8,157 rows
+• First row is now: TXN_3977031 (Cake purchase)
+• All data has been preserved except the removed row
 
 ## Available Variables:
 - `df`: the current dataframe
@@ -261,6 +314,139 @@ This keeps only the first occurrence of each unique row combination."
             return code if code else None
         
         return None
+    
+    def assess_data_quality(self, df: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Assess data quality and return issues grouped by priority
+        
+        Returns:
+            {
+                "has_issues": bool,
+                "quality_score": float (0-100),
+                "issues": {
+                    "high": [...],
+                    "medium": [...],
+                    "low": [...]
+                }
+            }
+        """
+        try:
+            issues = {"high": [], "medium": [], "low": []}
+            total_cells = df.shape[0] * df.shape[1]
+            quality_factors = []
+            
+            # 1. Missing Values (HIGH priority if >5%)
+            missing_count = int(df.isnull().sum().sum())
+            missing_percentage = float((missing_count / total_cells * 100) if total_cells > 0 else 0)
+            
+            if missing_percentage > 5:
+                issues["high"].append({
+                    "type": "missing_values",
+                    "description": f"{missing_percentage:.1f}% of cells contain missing values",
+                    "count": missing_count,
+                    "affected_columns": [col for col in df.columns if df[col].isnull().any()]
+                })
+                quality_factors.append(max(0, 100 - missing_percentage * 2))
+            elif missing_percentage > 0:
+                issues["medium"].append({
+                    "type": "missing_values",
+                    "description": f"{missing_percentage:.1f}% of cells contain missing values",
+                    "count": missing_count,
+                    "affected_columns": [col for col in df.columns if df[col].isnull().any()]
+                })
+                quality_factors.append(90)
+            else:
+                quality_factors.append(100)
+            
+            # 2. Duplicate Rows (MEDIUM priority if >5%)
+            duplicate_count = int(df.duplicated().sum())
+            duplicate_percentage = (duplicate_count / len(df) * 100) if len(df) > 0 else 0
+            
+            if duplicate_percentage > 5:
+                issues["medium"].append({
+                    "type": "duplicates",
+                    "description": f"{duplicate_count} duplicate rows ({duplicate_percentage:.1f}%)",
+                    "count": duplicate_count
+                })
+                quality_factors.append(max(0, 100 - duplicate_percentage * 3))
+            elif duplicate_count > 0:
+                issues["low"].append({
+                    "type": "duplicates",
+                    "description": f"{duplicate_count} duplicate rows ({duplicate_percentage:.1f}%)",
+                    "count": duplicate_count
+                })
+                quality_factors.append(95)
+            else:
+                quality_factors.append(100)
+            
+            # 3. Empty Columns (HIGH priority)
+            empty_columns = [col for col in df.columns if df[col].isnull().all()]
+            if empty_columns:
+                issues["high"].append({
+                    "type": "empty_columns",
+                    "description": f"{len(empty_columns)} columns are completely empty",
+                    "affected_columns": empty_columns
+                })
+                quality_factors.append(70)
+            else:
+                quality_factors.append(100)
+            
+            # 4. Data Type Issues (MEDIUM priority)
+            type_issues = []
+            for col in df.columns:
+                if df[col].dtype == 'object':
+                    non_null = df[col].dropna()
+                    if len(non_null) > 0:
+                        try:
+                            pd.to_numeric(non_null, errors='raise')
+                            type_issues.append(col)
+                        except:
+                            pass
+            
+            if type_issues:
+                issues["medium"].append({
+                    "type": "data_types",
+                    "description": f"{len(type_issues)} columns may have incorrect data types",
+                    "affected_columns": type_issues
+                })
+                quality_factors.append(85)
+            else:
+                quality_factors.append(100)
+            
+            # 5. Problematic Column Names (LOW priority)
+            problematic_names = [col for col in df.columns 
+                               if not col or col.strip() == '' or col.startswith('Unnamed:')]
+            if problematic_names:
+                issues["low"].append({
+                    "type": "column_names",
+                    "description": f"{len(problematic_names)} columns have unclear names",
+                    "affected_columns": problematic_names
+                })
+                quality_factors.append(90)
+            else:
+                quality_factors.append(100)
+            
+            # Calculate overall quality score
+            quality_score = sum(quality_factors) / len(quality_factors) if quality_factors else 0
+            
+            # Check if there are any issues
+            has_issues = bool(issues["high"] or issues["medium"] or issues["low"])
+            
+            return {
+                "has_issues": has_issues,
+                "quality_score": float(round(quality_score, 1)),
+                "issues": issues,
+                "total_rows": int(len(df)),
+                "total_columns": int(len(df.columns))
+            }
+            
+        except Exception as e:
+            return {
+                "has_issues": False,
+                "quality_score": 0,
+                "issues": {"high": [], "medium": [], "low": []},
+                "error": str(e)
+            }
 
 # Global instance
 ai_agent = AIAgent()

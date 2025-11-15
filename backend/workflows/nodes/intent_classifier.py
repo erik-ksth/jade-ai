@@ -14,19 +14,26 @@ class IntentClassifier:
         self.system_prompt = """You are an intent classifier for a data analytics platform.
 Analyze the user's message and classify it into one of these intents:
 
-1. **CLEAN** - Data cleaning operations:
-   - Removing duplicates, null values, or invalid data
-   - Fixing data types or formats
-   - Handling missing values
-   - Standardizing data
-   Examples: "remove duplicates", "fill missing values", "clean the data"
+1. **CLEAN** - Data quality improvement operations (ONLY when explicitly about data quality):
+   - Removing duplicates (entire duplicate rows)
+   - Filling/imputing missing/null values (NaN, None, empty cells)
+   - Fixing data type inconsistencies
+   - Removing empty columns
+   - General "clean my data" or "improve data quality" requests
+   Examples: "remove duplicates", "fill missing values", "clean the data", "fix data quality", "impute nulls"
+   
+   **NOT CLEAN**: 
+   - Removing specific rows/columns by index or condition (that's TRANSFORM)
+   - Removing rows with specific values like "unknown", "N/A", etc. (that's TRANSFORM - it's filtering)
 
-2. **TRANSFORM** - Data transformation operations:
+2. **TRANSFORM** - Data transformation and manipulation operations:
+   - Removing specific rows or columns (by index, name, or condition)
    - Creating new columns or features
    - Aggregating or grouping data
-   - Filtering or selecting data
+   - Filtering or selecting data based on conditions
    - Reshaping data (pivot, melt, etc.)
-   Examples: "add a new column", "group by category", "filter rows where"
+   - Sorting data
+   Examples: "remove the first row", "drop column X", "filter rows where age > 30", "remove unknown values", "remove rows with N/A", "add a new column", "group by category"
 
 3. **ANALYZE** - Statistical analysis:
    - Calculating statistics (mean, median, correlation, etc.)

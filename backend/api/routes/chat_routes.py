@@ -1,13 +1,117 @@
 """Chat routes for AI interaction"""
 
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 from api.models import ChatRequest, ChatResponse
 from services.chart_service import chart_service
 from core.state import df_state
 from workflows.orchestrator import workflow_graph
 from workflows.state import WorkflowState
+import json
+import asyncio
 
 router = APIRouter(tags=["chat"])
+
+
+@router.post("/chat/stream")
+async def chat_stream(request: ChatRequest):
+    """Streaming chat endpoint that sends progress updates"""
+    
+    async def event_generator():
+        try:
+            # Prepare initial state
+            initial_state: WorkflowState = {
+                "user_message": request.message,
+                "chat_history": [
+                    {"role": msg.role, "content": msg.content}
+                    for msg in request.chat_history
+                ],
+                "df_info": df_state.get_info(),
+                "intent": None,
+                "confidence": None,
+                "pandas_code": None,
+                "code_explanation": None,
+                "execution_success": True,
+                "execution_error": None,
+                "print_output": None,
+                "chart_data": None,
+                "ai_response": "",
+                "narrative_output": None,
+                "quality_assessment": None,
+                "cleaning_iteration": 0,
+                "max_cleaning_iterations": 5,
+                "cleaning_history": [],
+                "needs_approval": False,
+                "approved": True,
+                "retry_count": 0,
+                "max_retries": 2
+            }
+            
+            # Run workflow
+            final_state = workflow_graph.invoke(initial_state)
+            
+            # Stream the AI response in chunks (split by paragraphs)
+            ai_response = final_state.get('ai_response', '')
+            
+            print(f"\n📤 Full AI Response:\n{ai_response}\n")
+            
+            # Split by double newlines to get logical sections
+            sections = ai_response.split('\n\n')
+            
+            print(f"📦 Split into {len(sections)} sections")
+            
+            for i, section in enumerate(sections):
+                if section.strip():
+                    # Add back the spacing between sections (except for first one)
+                    content = section if i == 0 else '\n\n' + section
+                    print(f"  Section {i}: {repr(content[:50])}...")
+                    yield f"data: {json.dumps({'type': 'response', 'content': content})}\n\n"
+                    await asyncio.sleep(0.2)  # Small delay between sections
+            
+            # Send completion event with data
+            completion_data = {
+                "type": "complete",
+                "data_updated": False,
+                "updated_data": None,
+                "chart_data": None,
+                "error": final_state.get("execution_error")
+            }
+            
+            # If code was executed successfully, include updated data
+            if final_state.get("execution_success") and final_state.get("pandas_code"):
+                if df_state.has_data() and df_state.current_dataframe is not None:
+                    completion_data["data_updated"] = True
+                    completion_data["updated_data"] = {
+                        "data": df_state.current_dataframe.to_dict(orient="records"),
+                        "columns": df_state.current_dataframe.columns.tolist(),
+                        "rows": int(len(df_state.current_dataframe)),
+                        "dtypes": {str(k): str(v) for k, v in df_state.current_dataframe.dtypes.to_dict().items()}
+                    }
+            
+            # Handle chart data
+            if final_state.get("chart_data"):
+                try:
+                    completion_data["chart_data"] = chart_service.format_chart_data(final_state["chart_data"])
+                except Exception as chart_error:
+                    print(f"Chart formatting error: {chart_error}")
+            
+            yield f"data: {json.dumps(completion_data)}\n\n"
+            yield "data: [DONE]\n\n"
+            
+        except Exception as e:
+            print(f"❌ Streaming error: {e}")
+            import traceback
+            traceback.print_exc()
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -33,6 +137,10 @@ async def chat(request: ChatRequest):
             "chart_data": None,
             "ai_response": "",
             "narrative_output": None,
+            "quality_assessment": None,
+            "cleaning_iteration": 0,
+            "max_cleaning_iterations": 5,
+            "cleaning_history": [],
             "needs_approval": False,
             "approved": True,
             "retry_count": 0,

@@ -40,6 +40,12 @@ class WorkflowState(TypedDict):
     ai_response: str
     narrative_output: Optional[str]
     
+    # Quality assessment (for iterative cleaning)
+    quality_assessment: Optional[Dict[str, Any]]
+    cleaning_iteration: int
+    max_cleaning_iterations: int
+    cleaning_history: List[Dict[str, Any]]  # Track what was fixed in each iteration
+    
     # Workflow control
     needs_approval: bool
     approved: bool

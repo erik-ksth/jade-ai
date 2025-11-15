@@ -71,3 +71,15 @@ async def execute_pandas_code(request: PandasCodeRequest):
         
     except Exception as e:
         return {"error": str(e)}
+
+
+@router.post("/clear")
+async def clear_state():
+    """Clear all backend state (dataframes, sheets, chat history)"""
+    
+    df_state.clear()
+    
+    return {
+        "success": True,
+        "message": "Backend state cleared successfully"
+    }
