@@ -21,13 +21,38 @@ interface ChatAgentProps {
 export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoading }: ChatAgentProps) {
      const [newMessage, setNewMessage] = useState("");
      const [copiedCode, setCopiedCode] = useState<number | null>(null);
+     const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
      const messagesEndRef = useRef<HTMLDivElement>(null);
      const inputRef = useRef<HTMLInputElement>(null);
+     const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-     // Auto-scroll to bottom when messages change
+     // Detect user scrolling and disable auto-scroll
      useEffect(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-     }, [messages, isLoading]);
+          const container = messagesContainerRef.current;
+          if (!container) return;
+
+          const handleScroll = () => {
+               // Check if user is at the bottom (within 10px threshold)
+               const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 10;
+
+               // If user scrolls away from bottom, disable auto-scroll
+               // If user scrolls back to bottom, re-enable it
+               setAutoScrollEnabled(isAtBottom);
+          };
+
+          container.addEventListener('scroll', handleScroll);
+          return () => container.removeEventListener('scroll', handleScroll);
+     }, []);
+
+     // Smooth auto-scroll that only works when enabled
+     useEffect(() => {
+          if (!autoScrollEnabled) return;
+
+          // Use requestAnimationFrame for smoother scrolling during streaming
+          requestAnimationFrame(() => {
+               messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+          });
+     }, [messages, autoScrollEnabled]);
 
      // Auto-focus input when data is uploaded
      useEffect(() => {
@@ -163,6 +188,8 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
           if (!newMessage.trim()) return;
           onSendMessage(newMessage);
           setNewMessage("");
+          // Re-enable auto-scroll when user sends a message
+          setAutoScrollEnabled(true);
           // Focus back to input after sending
           setTimeout(() => inputRef.current?.focus(), 100);
      };
@@ -177,7 +204,7 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                     </div>
                     <div className="flex-1 flex flex-col overflow-y-auto px-1">
                          {/* Messages */}
-                         <div className="flex-1 overflow-y-auto space-y-3 mb-3 pr-2">
+                         <div ref={messagesContainerRef} className="flex-1 overflow-y-auto space-y-3 mb-3 pr-2">
                               {messages.map((message, index) => (
                                    <div key={index} className="space-y-2">
                                         {/* Message Content */}
