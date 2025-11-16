@@ -1,6 +1,6 @@
 """State models for LangGraph workflows"""
 
-from typing import TypedDict, Optional, List, Dict, Any, Literal
+from typing import TypedDict, Optional, List, Dict, Any, Literal, Callable
 from enum import Enum
 
 
@@ -51,6 +51,9 @@ class WorkflowState(TypedDict):
     approved: bool
     retry_count: int
     max_retries: int
+    
+    # Streaming support
+    stream_callback: Optional[Callable[[str], None]]
 
 
 class CleanWorkflowState(WorkflowState):

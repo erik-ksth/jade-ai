@@ -232,9 +232,12 @@ This keeps only the first occurrence of each unique row combination."
 - Be conversational, helpful, and always provide executable code when data manipulation is requested"""
 
 
-    def generate_response(self, user_message: str, df_info: Dict[str, Any] = None, chat_history: List[Dict] = None) -> Dict[str, Any]:
+    def generate_response(self, user_message: str, df_info: Dict[str, Any] = None, chat_history: List[Dict] = None, stream_callback=None) -> Dict[str, Any]:
         """
         Generate AI response with dataframe context
+        
+        Args:
+            stream_callback: Optional callback function that receives each chunk as it's generated
         
         Returns:
             {
@@ -284,7 +287,11 @@ This keeps only the first occurrence of each unique row combination."
             
             for chunk in stream:
                 if chunk.choices[0].delta.content:
-                    response_text += chunk.choices[0].delta.content
+                    content = chunk.choices[0].delta.content
+                    response_text += content
+                    # Call the streaming callback if provided
+                    if stream_callback:
+                        stream_callback(content)
             
             # Extract pandas code from response
             pandas_code = self._extract_pandas_code(response_text)

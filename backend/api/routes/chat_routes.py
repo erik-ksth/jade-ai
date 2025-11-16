@@ -15,11 +15,21 @@ router = APIRouter(tags=["chat"])
 
 @router.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
-    """Streaming chat endpoint that sends progress updates"""
+    """Real streaming chat endpoint that sends tokens as they're generated"""
     
     async def event_generator():
         try:
-            # Prepare initial state
+            # Create a queue for streaming chunks
+            chunk_queue = asyncio.Queue()
+            final_state_holder = {}
+            loop = asyncio.get_event_loop()
+            
+            # Streaming callback that gets called for each token
+            def stream_callback(chunk: str):
+                # Put chunk in queue (this is called from sync context in thread)
+                asyncio.run_coroutine_threadsafe(chunk_queue.put(chunk), loop)
+            
+            # Prepare initial state with streaming callback
             initial_state: WorkflowState = {
                 "user_message": request.message,
                 "chat_history": [
@@ -44,29 +54,47 @@ async def chat_stream(request: ChatRequest):
                 "needs_approval": False,
                 "approved": True,
                 "retry_count": 0,
-                "max_retries": 2
+                "max_retries": 2,
+                "stream_callback": stream_callback
             }
             
-            # Run workflow
-            final_state = workflow_graph.invoke(initial_state)
+            # Run workflow in background
+            async def run_workflow():
+                try:
+                    # Run workflow synchronously in thread pool
+                    import concurrent.futures
+                    loop = asyncio.get_event_loop()
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        result = await loop.run_in_executor(
+                            executor,
+                            workflow_graph.invoke,
+                            initial_state
+                        )
+                    final_state_holder['state'] = result
+                    await chunk_queue.put(None)  # Signal completion
+                except Exception as e:
+                    final_state_holder['error'] = str(e)
+                    await chunk_queue.put(None)
             
-            # Stream the AI response in chunks (split by paragraphs)
-            ai_response = final_state.get('ai_response', '')
+            # Start workflow task
+            workflow_task = asyncio.create_task(run_workflow())
             
-            print(f"\n📤 Full AI Response:\n{ai_response}\n")
+            # Stream chunks as they arrive
+            while True:
+                chunk = await chunk_queue.get()
+                if chunk is None:  # Workflow completed
+                    break
+                yield f"data: {json.dumps({'type': 'response', 'content': chunk})}\n\n"
             
-            # Split by double newlines to get logical sections
-            sections = ai_response.split('\n\n')
+            # Wait for workflow to complete
+            await workflow_task
             
-            print(f"📦 Split into {len(sections)} sections")
+            # Check for errors
+            if 'error' in final_state_holder:
+                yield f"data: {json.dumps({'type': 'error', 'content': final_state_holder['error']})}\n\n"
+                return
             
-            for i, section in enumerate(sections):
-                if section.strip():
-                    # Add back the spacing between sections (except for first one)
-                    content = section if i == 0 else '\n\n' + section
-                    print(f"  Section {i}: {repr(content[:50])}...")
-                    yield f"data: {json.dumps({'type': 'response', 'content': content})}\n\n"
-                    await asyncio.sleep(0.2)  # Small delay between sections
+            final_state = final_state_holder.get('state', {})
             
             # Send completion event with data
             completion_data = {

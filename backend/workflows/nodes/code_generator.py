@@ -17,11 +17,15 @@ class CodeGenerator:
     def generate(self, state: WorkflowState) -> WorkflowState:
         """Generate pandas code for the user's request"""
         try:
+            # Get streaming callback from state if available
+            stream_callback = state.get("stream_callback")
+            
             # Get AI response with code
             ai_response = self.ai_agent.generate_response(
                 user_message=state["user_message"],
                 df_info=state["df_info"],
-                chat_history=state["chat_history"]
+                chat_history=state["chat_history"],
+                stream_callback=stream_callback
             )
             
             # Update state

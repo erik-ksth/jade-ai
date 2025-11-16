@@ -44,11 +44,15 @@ Please provide a clear, narrative explanation of what this output means in the c
 - Explain the results in a conversational, human tone that helps the user understand what happened to their data
 """
                 
+                # Get streaming callback from state if available
+                stream_callback = state.get("stream_callback")
+                
                 # Get narrative from AI
                 narrative_response = self.ai_agent.generate_response(
                     user_message=narrative_prompt,
                     df_info=state.get("df_info", {}),
-                    chat_history=state.get("chat_history", [])
+                    chat_history=state.get("chat_history", []),
+                    stream_callback=stream_callback
                 )
                 
                 state["narrative_output"] = narrative_response.get("response", "")
