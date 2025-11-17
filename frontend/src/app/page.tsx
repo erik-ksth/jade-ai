@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { UploadedData, ChatMessage, ChatRequest, ChatResponse, ChartData, TextElement } from "../../../shared/types";
+import { UploadedData, ChatMessage, ChatRequest, ChatResponse, ChartData, TextElement, BoxElement } from "../../../shared/types";
 import DataTable from "@/components/DataTable";
 import Dashboard from "@/components/Dashboard";
 import ChatAgent from "@/components/ChatAgent";
@@ -31,6 +31,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [charts, setCharts] = useState<ChartData[]>([]);
   const [textElements, setTextElements] = useState<TextElement[]>([]);
+  const [boxElements, setBoxElements] = useState<BoxElement[]>([]);
 
   // Tab system state
   const [tabs, setTabs] = useState<SimpleTab[]>([]);
@@ -337,6 +338,20 @@ export default function Home() {
     setTextElements(prev => prev.filter(elem => elem.id !== id));
   };
 
+  const handleAddBoxElement = (boxElement: BoxElement) => {
+    setBoxElements(prev => [...prev, boxElement]);
+  };
+
+  const handleUpdateBoxElement = (id: string, updates: Partial<BoxElement>) => {
+    setBoxElements(prev => prev.map(elem =>
+      elem.id === id ? { ...elem, ...updates } : elem
+    ));
+  };
+
+  const handleRemoveBoxElement = (id: string) => {
+    setBoxElements(prev => prev.filter(elem => elem.id !== id));
+  };
+
   const handleSendMessage = async (message: string) => {
     // Add user message to chat
     const userMessage: ChatMessage = { role: 'user', content: message };
@@ -625,6 +640,10 @@ export default function Home() {
                             onAddTextElement={handleAddTextElement}
                             onUpdateTextElement={handleUpdateTextElement}
                             onRemoveTextElement={handleRemoveTextElement}
+                            boxElements={boxElements}
+                            onAddBoxElement={handleAddBoxElement}
+                            onUpdateBoxElement={handleUpdateBoxElement}
+                            onRemoveBoxElement={handleRemoveBoxElement}
                           />
                         )
                         : null

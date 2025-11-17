@@ -69,6 +69,18 @@ export interface TextElement {
   color?: string;
 }
 
+export interface BoxElement {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  backgroundColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  borderRadius?: number;
+}
+
 export interface ChatResponse {
   response: string;
   pandas_code: string | null;
