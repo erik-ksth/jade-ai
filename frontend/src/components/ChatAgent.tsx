@@ -205,6 +205,40 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                     <div className="flex-1 flex flex-col overflow-y-auto px-1">
                          {/* Messages */}
                          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto space-y-3 mb-3 pr-2">
+                              {/* Suggested Prompts - Show when no messages */}
+                              {messages.length === 0 && uploadedData && (
+                                   <div className="flex flex-col items-center justify-center h-full space-y-4 px-4">
+                                        <div className="text-center mb-4">
+                                             <Sparkles className="h-10 w-10 text-slate-400 mx-auto mb-3" />
+                                             <h3 className="text-lg font-semibold text-slate-700 mb-1">Ask me anything about your data</h3>
+                                             <p className="text-sm text-slate-500">Try one of these suggestions:</p>
+                                        </div>
+                                        <div className="w-full max-w-md space-y-2">
+                                             <button
+                                                  onClick={() => onSendMessage("Show me a summary of this dataset")}
+                                                  disabled={isLoading}
+                                                  className="w-full text-left p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors text-sm text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                             >
+                                                  <span className="font-medium">Show me a summary of this dataset</span>
+                                             </button>
+                                             <button
+                                                  onClick={() => onSendMessage("Remove rows with missing values")}
+                                                  disabled={isLoading}
+                                                  className="w-full text-left p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors text-sm text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                             >
+                                                  <span className="font-medium">Remove rows with missing values</span>
+                                             </button>
+                                             <button
+                                                  onClick={() => onSendMessage("Create a chart showing the top 10 values")}
+                                                  disabled={isLoading}
+                                                  className="w-full text-left p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors text-sm text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                             >
+                                                  <span className="font-medium">Create a chart showing the top 10 values</span>
+                                             </button>
+                                        </div>
+                                   </div>
+                              )}
+
                               {messages.map((message, index) => (
                                    <div key={index} className="space-y-2">
                                         {/* Message Content */}
