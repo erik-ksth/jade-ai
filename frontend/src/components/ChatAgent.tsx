@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Copy, Check, Sparkles } from "lucide-react";
+import { Send, Copy, Check, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { ChatMessage, UploadedData } from "../../../shared/types";
 import ReactMarkdown from "react-markdown";
 import { Components } from "react-markdown";
@@ -82,7 +82,7 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                const match = /language-(\w+)/.exec(className || '');
                const isInline = !match;
                const codeString = String(children).replace(/\n$/, '');
-               const codeIndex = Math.random(); // Unique ID for copy button
+               const codeIndex = Math.floor(Math.random() * 1000000); // Unique ID for copy button
 
                if (isInline) {
                     return (
@@ -93,25 +93,52 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                }
 
                return (
-                    <div className="relative group my-4">
-                         <div className="absolute right-2 top-2 z-10">
-                              <button
-                                   onClick={() => copyCode(codeString, codeIndex)}
-                                   className="opacity-0 group-hover:opacity-100 transition-opacity bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs flex items-center gap-1.5 shadow-lg"
-                              >
-                                   {copiedCode === codeIndex ? (
-                                        <>
-                                             <Check className="h-3 w-3" />
-                                             <span>Copied!</span>
-                                        </>
-                                   ) : (
-                                        <>
-                                             <Copy className="h-3 w-3" />
-                                             <span>Copy</span>
-                                        </>
-                                   )}
-                              </button>
-                         </div>
+                    <details className="group my-4">
+                         <summary className="cursor-pointer list-none">
+                              <div className="relative">
+                                   <div className="absolute right-2 top-2 z-10 flex gap-2">
+                                        <button
+                                             onClick={(e) => {
+                                                  e.preventDefault();
+                                                  const details = e.currentTarget.closest('details');
+                                                  if (details) details.open = !details.open;
+                                             }}
+                                             className="opacity-0 group-hover:opacity-100 transition-opacity bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs flex items-center gap-1.5 shadow-lg"
+                                        >
+                                             <span className="group-open:hidden flex items-center gap-1.5">
+                                                  <ChevronDown className="h-3 w-3" />
+                                                  <span>Expand</span>
+                                             </span>
+                                             <span className="hidden group-open:flex items-center gap-1.5">
+                                                  <ChevronUp className="h-3 w-3" />
+                                                  <span>Collapse</span>
+                                             </span>
+                                        </button>
+                                        <button
+                                             onClick={(e) => {
+                                                  e.preventDefault();
+                                                  copyCode(codeString, codeIndex);
+                                             }}
+                                             className="opacity-0 group-hover:opacity-100 transition-opacity bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs flex items-center gap-1.5 shadow-lg"
+                                        >
+                                             {copiedCode === codeIndex ? (
+                                                  <>
+                                                       <Check className="h-3 w-3" />
+                                                       <span>Copied!</span>
+                                                  </>
+                                             ) : (
+                                                  <>
+                                                       <Copy className="h-3 w-3" />
+                                                       <span>Copy</span>
+                                                  </>
+                                             )}
+                                        </button>
+                                   </div>
+                                   <div className="bg-slate-800 text-slate-400 px-4 py-2 rounded-md border border-slate-700 text-xs font-mono flex items-center justify-between group-open:hidden">
+                                        <span>Code block collapsed ({match ? match[1] : 'python'})</span>
+                                   </div>
+                              </div>
+                         </summary>
                          <SyntaxHighlighter
                               language={match ? match[1] : 'python'}
                               style={vscDarkPlus}
@@ -126,7 +153,7 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                          >
                               {codeString}
                          </SyntaxHighlighter>
-                    </div>
+                    </details>
                );
           },
           p: ({ children }) => (
