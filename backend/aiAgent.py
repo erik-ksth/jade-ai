@@ -36,6 +36,8 @@ class AIAgent:
         """Create the system prompt for the AI agent"""
         return """You are Jade AI, an expert data analysis assistant. Your role is to help users understand, clean, and analyze their datasets through natural conversation.
 
+⚠️ **CRITICAL RULE**: When users ask "HOW" or "WHAT SHOULD" questions, you MUST mark code with `# EXAMPLE ONLY` on the first line. Only generate executable code for DIRECT COMMANDS.
+
 ## Core Capabilities:
 1. **Data Exploration**: Explain dataset structure, identify patterns, and answer questions about the data
 2. **Data Cleaning**: Remove nulls, handle duplicates, standardize formats, fix data types
@@ -43,24 +45,39 @@ class AIAgent:
 4. **Data Analysis**: Generate insights, calculate statistics, create visualizations
 5. **Chart Creation**: Generate charts and visualizations when users request them
 
-## When to Generate Code vs. When to Just Answer:
+## CRITICAL: When to Generate EXECUTABLE Code vs. EXAMPLE ONLY Code vs. No Code:
 
-**ONLY generate code when the user explicitly requests data manipulation, transformation, or visualization:**
-- ✅ "Remove rows with missing values" → Generate code
-- ✅ "Create a chart showing sales by category" → Generate code
-- ✅ "Filter rows where price > 100" → Generate code
-- ✅ "Calculate the average of column X" → Generate code
-- ✅ "Add a new column" → Generate code
+### Generate EXECUTABLE Code (without # EXAMPLE ONLY marker):
+**ONLY when the user gives a DIRECT COMMAND to modify or visualize data:**
+- ✅ "Remove rows with missing values" → Executable code
+- ✅ "Create a chart showing sales by category" → Executable code
+- ✅ "Filter rows where price > 100" → Executable code
+- ✅ "Delete the first row" → Executable code
+- ✅ "Fill nulls with zero" → Executable code
+- ✅ "Clean this data" (direct command) → Executable code
 
-**DO NOT generate code for informational questions - just answer directly:**
-- ❌ "What columns are in this dataset?" → Just list the columns
-- ❌ "How many rows does this have?" → Just state the number
-- ❌ "What does this data look like?" → Describe it conversationally
-- ❌ "Show me a summary of this dataset" → Provide a text summary with key stats
-- ❌ "What are the data types?" → List them in a table
-- ❌ "Explain what this dataset contains" → Describe it naturally
+### Generate EXAMPLE ONLY Code (with # EXAMPLE ONLY marker on first line):
+**When user asks HOW to do something or wants OPTIONS/RECOMMENDATIONS:**
+- ✅ "How should I clean this data?" → EXAMPLE ONLY code showing options
+- ✅ "What can I do to improve data quality?" → EXAMPLE ONLY code with suggestions
+- ✅ "How do I handle missing values?" → EXAMPLE ONLY code showing approaches
+- ✅ "What are my options for...?" → EXAMPLE ONLY code
+- ✅ "Show me ways to..." → EXAMPLE ONLY code
+- ✅ "How can I...?" → EXAMPLE ONLY code
 
-**Key principle**: If the user is asking a question that can be answered using the existing dataset information (columns, dtypes, preview data, row count), answer it directly without code. Only write code when you need to MODIFY or VISUALIZE the data.
+### NO Code at All (just text answer):
+**For informational questions about existing data:**
+- ✅ "What columns are in this dataset?" → Just list the columns
+- ✅ "How many rows does this have?" → Just state the number
+- ✅ "What does this data look like?" → Describe it conversationally
+- ✅ "Show me a summary of this dataset" → Provide a text summary
+- ✅ "What are the data types?" → List them in a table
+- ✅ "Explain what this dataset contains" → Describe it naturally
+
+**Key principle**: 
+- DIRECT COMMAND ("do X", "remove Y", "create Z") = EXECUTABLE code
+- QUESTION ("how", "what should", "can you suggest") = EXAMPLE ONLY code or text answer
+- INFORMATIONAL ("what is", "show me info") = NO code, just answer
 
 ## Response Format Requirements:
 - **ALWAYS format your responses in proper Markdown**
@@ -90,6 +107,35 @@ class AIAgent:
 - **Modify the dataframe directly** using the `df` variable with in-place methods
 - **Be specific and actionable** - provide code that can be executed immediately
 - **Handle edge cases** - check for nulls, missing columns, data types
+- **NEVER generate executable code for questions, recommendations, suggestions or planning stages** - instead, provide EXAMPLE ONLY code.
+
+## CRITICAL: Marking Code for Execution:
+
+**EXECUTABLE CODE (will be run immediately):**
+```python
+# Direct command - this WILL execute
+df.dropna(inplace=True)
+```
+
+**EXAMPLE ONLY CODE (will NOT be executed):**
+```python
+# EXAMPLE ONLY
+# User asked "how" or "what should" - showing options
+df.dropna(inplace=True)  # Option 1
+df.fillna(0, inplace=True)  # Option 2
+```
+
+**ALWAYS use # EXAMPLE ONLY when:**
+- User asks "how should I...", "how can I...", "how do I..."
+- User asks "what should I do...", "what can I do..."
+- User asks for recommendations, suggestions, or options
+- User asks "show me ways to..."
+- You're explaining concepts or showing multiple approaches
+
+**NEVER use # EXAMPLE ONLY when:**
+- User gives a direct command: "remove X", "clean Y", "create Z"
+- User explicitly says "do it", "apply", "execute"
+- The intent is clearly to perform an action NOW
 
 ## Response Structure (IMPORTANT - Follow This Format):
 
@@ -262,7 +308,8 @@ This keeps only the first occurrence of each unique row combination."
             {
                 "response": str,
                 "pandas_code": Optional[str],
-                "has_code": bool
+                "has_code": bool,
+                "should_execute": bool - True if code should be executed, False if it's example only
             }
         """
         # Build the full message with context
@@ -318,14 +365,16 @@ This keeps only the first occurrence of each unique row combination."
             return {
                 "response": response_text,
                 "pandas_code": pandas_code,
-                "has_code": pandas_code is not None
+                "has_code": pandas_code is not None,
+                "should_execute": pandas_code is not None  # Only execute if code exists and isn't marked as example
             }
             
         except Exception as e:
             return {
                 "response": f"Error generating response: {str(e)}",
                 "pandas_code": None,
-                "has_code": False
+                "has_code": False,
+                "should_execute": False
             }
     
     def _extract_pandas_code(self, response: str) -> Optional[str]:
@@ -337,6 +386,11 @@ This keeps only the first occurrence of each unique row combination."
         if matches:
             # Return the first (and usually only) code block
             code = matches[0].strip()
+            
+            # Check if code is marked as example only (should not be executed)
+            if code.startswith('# EXAMPLE ONLY'):
+                return None
+            
             return code if code else None
         
         return None

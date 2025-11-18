@@ -65,8 +65,8 @@ export default function DataTable({ uploadedData }: DataTableProps) {
                               }}
                               rowHeight={32}
                               headerHeight={40}
-                              pagination={true}
-                              paginationPageSize={100}
+                              pagination={false}
+                              // paginationPageSize={1000}
                               rowSelection="multiple"
                               suppressRowHoverHighlight={false}
                               cellSelection={true}

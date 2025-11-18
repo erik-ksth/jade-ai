@@ -1,6 +1,7 @@
 """Upload routes for file handling"""
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
+from api.utils import dataframe_to_json_safe
 from services.file_service import file_service
 from core.state import df_state
 
@@ -49,15 +50,18 @@ async def upload_file(file: UploadFile = File(...)):
             sheets = list(sheets_dict.keys())
             sheets_info = df_state.get_sheets_info()
         
-        # Build response
+        # Build response with JSON-safe data
+        json_safe_data = dataframe_to_json_safe(df_state.current_dataframe)
+        json_safe_preview = dataframe_to_json_safe(df_state.current_dataframe.head(5))
+        
         return {
             "filename": file.filename,
-            "rows": int(len(df_state.current_dataframe)),
-            "columns": int(len(df_state.current_dataframe.columns)),
-            "column_names": df_state.current_dataframe.columns.tolist(),
-            "dtypes": {str(k): str(v) for k, v in df_state.current_dataframe.dtypes.to_dict().items()},
-            "preview": df_state.current_dataframe.head(5).to_dict(orient="records"),
-            "data": df_state.current_dataframe.to_dict(orient="records"),
+            "rows": json_safe_data["rows"],
+            "columns": len(json_safe_data["columns"]),
+            "column_names": json_safe_data["columns"],
+            "dtypes": json_safe_data["dtypes"],
+            "preview": json_safe_preview["data"],
+            "data": json_safe_data["data"],
             "sheets": sheets,
             "sheets_info": sheets_info,
             "current_sheet": df_state.current_sheet_name,

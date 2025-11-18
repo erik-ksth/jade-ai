@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from api.models import ChatRequest, ChatResponse
+from api.utils import dataframe_to_json_safe
 from services.chart_service import chart_service
 from core.state import df_state
 from workflows.orchestrator import workflow_graph
@@ -109,12 +110,7 @@ async def chat_stream(request: ChatRequest):
             if final_state.get("execution_success") and final_state.get("pandas_code"):
                 if df_state.has_data() and df_state.current_dataframe is not None:
                     completion_data["data_updated"] = True
-                    completion_data["updated_data"] = {
-                        "data": df_state.current_dataframe.to_dict(orient="records"),
-                        "columns": df_state.current_dataframe.columns.tolist(),
-                        "rows": int(len(df_state.current_dataframe)),
-                        "dtypes": {str(k): str(v) for k, v in df_state.current_dataframe.dtypes.to_dict().items()}
-                    }
+                    completion_data["updated_data"] = dataframe_to_json_safe(df_state.current_dataframe)
             
             # Handle chart data
             if final_state.get("chart_data"):
@@ -197,12 +193,7 @@ async def chat(request: ChatRequest):
         if final_state.get("execution_success") and final_state.get("pandas_code"):
             if df_state.has_data() and df_state.current_dataframe is not None:
                 response_data["data_updated"] = True
-                response_data["updated_data"] = {
-                    "data": df_state.current_dataframe.to_dict(orient="records"),
-                    "columns": df_state.current_dataframe.columns.tolist(),
-                    "rows": int(len(df_state.current_dataframe)),
-                    "dtypes": {str(k): str(v) for k, v in df_state.current_dataframe.dtypes.to_dict().items()}
-                }
+                response_data["updated_data"] = dataframe_to_json_safe(df_state.current_dataframe)
         
         # Handle chart data if generated
         if final_state.get("chart_data"):

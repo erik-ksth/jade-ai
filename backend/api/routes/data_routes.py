@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, HTTPException
 from api.models import SwitchSheetRequest, PandasCodeRequest
+from api.utils import dataframe_to_json_safe
 from core.state import df_state
 import pandas as pd
 
@@ -38,14 +39,16 @@ async def switch_sheet(request: SwitchSheetRequest):
             detail=f"Sheet '{request.sheet_name}' not found"
         )
     
+    json_safe_data = dataframe_to_json_safe(df_state.current_dataframe)
+    
     return {
         "success": True,
         "message": f"Switched to sheet '{request.sheet_name}'",
         "current_sheet": df_state.current_sheet_name,
-        "data": df_state.current_dataframe.to_dict(orient="records"),
-        "columns": df_state.current_dataframe.columns.tolist(),
-        "rows": int(len(df_state.current_dataframe)),
-        "dtypes": {str(k): str(v) for k, v in df_state.current_dataframe.dtypes.to_dict().items()}
+        "data": json_safe_data["data"],
+        "columns": json_safe_data["columns"],
+        "rows": json_safe_data["rows"],
+        "dtypes": json_safe_data["dtypes"]
     }
 
 
@@ -62,11 +65,13 @@ async def execute_pandas_code(request: PandasCodeRequest):
         exec(request.code, exec_context, exec_context)
         
         # Return updated data
+        json_safe_data = dataframe_to_json_safe(df_state.current_dataframe)
+        
         return {
             "success": True,
-            "data": df_state.current_dataframe.to_dict(orient="records"),
-            "columns": df_state.current_dataframe.columns.tolist(),
-            "rows": int(len(df_state.current_dataframe))
+            "data": json_safe_data["data"],
+            "columns": json_safe_data["columns"],
+            "rows": json_safe_data["rows"]
         }
         
     except Exception as e:

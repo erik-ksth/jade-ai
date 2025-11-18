@@ -29,16 +29,20 @@ class CodeGenerator:
             )
             
             # Update state
-            state["pandas_code"] = ai_response.get("pandas_code")
             state["ai_response"] = ai_response.get("response", "")
             
-            # Check if code was generated
-            if ai_response.get("has_code") and state["pandas_code"]:
-                print(f"✅ Code generated for {state['intent']} workflow")
+            # Check if code should be executed (not just example code)
+            if ai_response.get("should_execute") and ai_response.get("pandas_code"):
+                state["pandas_code"] = ai_response.get("pandas_code")
+                print(f"✅ Executable code generated for {state['intent']} workflow")
                 state["code_explanation"] = ai_response.get("response", "")
             else:
-                print(f"ℹ️ No code needed for this request")
+                # Code might exist but is marked as example only, or no code at all
                 state["pandas_code"] = None
+                if ai_response.get("has_code"):
+                    print(f"ℹ️ Example code provided (not for execution)")
+                else:
+                    print(f"ℹ️ No code needed for this request")
             
         except Exception as e:
             print(f"❌ Code generation error: {e}")

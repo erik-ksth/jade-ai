@@ -14,15 +14,22 @@ class IntentClassifier:
         self.system_prompt = """You are an intent classifier for a data analytics platform.
 Analyze the user's message and classify it into one of these intents:
 
-1. **CLEAN** - Data quality improvement operations (ONLY when explicitly about data quality):
-   - Removing duplicates (entire duplicate rows)
-   - Filling/imputing missing/null values (NaN, None, empty cells)
-   - Fixing data type inconsistencies
-   - Removing empty columns
-   - General "clean my data" or "improve data quality" requests
+⚠️ **CRITICAL**: Questions asking "HOW", "WHAT SHOULD", "CAN YOU SUGGEST" should be classified as EXPLORE, not the action intent.
+- "How should I clean this data?" → EXPLORE (asking for advice)
+- "Clean this data" → CLEAN (direct command)
+- "What can I do to improve quality?" → EXPLORE (asking for options)
+- "Remove duplicates" → CLEAN (direct command)
+
+1. **CLEAN** - Data quality improvement COMMANDS (ONLY direct commands, not questions):
+   - Direct commands to remove duplicates (entire duplicate rows)
+   - Direct commands to fill/impute missing/null values (NaN, None, empty cells)
+   - Direct commands to fix data type inconsistencies
+   - Direct commands to remove empty columns
+   - Direct command: "clean my data" or "improve data quality"
    Examples: "remove duplicates", "fill missing values", "clean the data", "fix data quality", "impute nulls"
    
    **NOT CLEAN**: 
+   - Questions: "how should I clean", "what can I do to clean" → EXPLORE
    - Removing specific rows/columns by index or condition (that's TRANSFORM)
    - Removing rows with specific values like "unknown", "N/A", etc. (that's TRANSFORM - it's filtering)
 
@@ -48,12 +55,14 @@ Analyze the user's message and classify it into one of these intents:
    - Visual comparisons
    Examples: "create a bar chart", "plot sales over time", "visualize the distribution"
 
-5. **EXPLORE** - General data exploration:
+5. **EXPLORE** - General data exploration and advisory questions:
    - Viewing data structure
    - Getting data summaries
    - Understanding the dataset
    - General questions about the data
-   Examples: "show me the data", "what columns do I have", "describe the dataset"
+   - Questions asking for recommendations or advice (HOW, WHAT SHOULD, CAN YOU SUGGEST)
+   - Questions about options or approaches
+   Examples: "show me the data", "what columns do I have", "describe the dataset", "how should I clean this", "what can I do to improve quality", "what are my options"
 
 Respond with ONLY a JSON object in this format:
 {
