@@ -352,6 +352,10 @@ export default function Home() {
     setBoxElements(prev => prev.filter(elem => elem.id !== id));
   };
 
+  const handleClearConversation = () => {
+    setChatMessages([]);
+  };
+
   const handleSendMessage = async (message: string) => {
     // Add user message to chat
     const userMessage: ChatMessage = { role: 'user', content: message };
@@ -599,8 +603,8 @@ export default function Home() {
           {/* Left Side - File Explorer */}
           <ResizablePanel
             ref={fileExplorerPanelRef}
-            defaultSize={15}
-            minSize={10}
+            defaultSize={8}
+            minSize={5}
             collapsible={true}
             onCollapse={() => setIsFileExplorerCollapsed(true)}
             onExpand={() => setIsFileExplorerCollapsed(false)}
@@ -670,8 +674,8 @@ export default function Home() {
           {/* Right Side - Chat */}
           <ResizablePanel
             ref={chatPanelRef}
-            defaultSize={30}
-            minSize={20}
+            defaultSize={20}
+            minSize={15}
             collapsible={true}
             onCollapse={() => setIsChatCollapsed(true)}
             onExpand={() => setIsChatCollapsed(false)}
@@ -683,6 +687,7 @@ export default function Home() {
                 onSendMessage={handleSendMessage}
                 uploadedData={uploadedData}
                 isLoading={isLoading}
+                onClearConversation={handleClearConversation}
               />
             </div>
           </ResizablePanel>

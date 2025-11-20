@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Copy, Check, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Send, Copy, Check, Sparkles, ChevronDown, ChevronUp, BrushCleaning } from "lucide-react";
 import { ChatMessage, UploadedData } from "../../../shared/types";
 import ReactMarkdown from "react-markdown";
 import { Components } from "react-markdown";
@@ -16,9 +16,10 @@ interface ChatAgentProps {
      onSendMessage: (message: string) => void;
      uploadedData: UploadedData | null;
      isLoading: boolean;
+     onClearConversation?: () => void;
 }
 
-export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoading }: ChatAgentProps) {
+export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoading, onClearConversation }: ChatAgentProps) {
      const [newMessage, setNewMessage] = useState("");
      const [copiedCode, setCopiedCode] = useState<number | null>(null);
      const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
@@ -93,7 +94,7 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                }
 
                return (
-                    <details className="group my-4">
+                    <details className="group my-4" open>
                          <summary className="cursor-pointer list-none">
                               <div className="relative">
                                    <div className="absolute right-2 top-2 z-10 flex gap-2">
@@ -225,8 +226,22 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
           <div className="w-full h-full border-l border-slate-200 bg-slate-50 p-3">
                <div className="h-full flex flex-col">
                     <div className="flex-shrink-0 pb-3 px-1">
-                         <div className="flex items-center justify-end gap-2">
-                              <Sparkles className="h-5 w-5 text-slate-700" />
+                         <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                   <Sparkles className="h-5 w-5 text-slate-700" />
+                                   <span className="text-sm font-medium text-slate-700">AI Assistant</span>
+                              </div>
+                              {messages.length > 0 && onClearConversation && (
+                                   <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={onClearConversation}
+                                        className="h-8 px-2 text-slate-600 hover:text-red-600 hover:bg-red-50"
+                                        title="Clear conversation"
+                                   >
+                                        <BrushCleaning className="h-4 w-4" />
+                                   </Button>
+                              )}
                          </div>
                     </div>
                     <div className="flex-1 flex flex-col overflow-y-auto px-1">
