@@ -13,7 +13,10 @@ class Settings:
     API_PREFIX: str = "/api/v1"
     
     # CORS Settings
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "https://jadeaiapp.vercel.app"
+    ]
     
     # Dataframe Settings
     MAX_FILE_SIZE_MB: int = 100
