@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { UploadedData, ChatMessage, ChatRequest, ChatResponse, ChartData, TextElement, BoxElement } from "../../../shared/types";
+import { UploadedData, ChatMessage, ChatRequest, ChartData, TextElement, BoxElement } from "../../../shared/types";
 import DataTable from "@/components/DataTable";
 import Dashboard from "@/components/Dashboard";
 import ChatAgent from "@/components/ChatAgent";
@@ -50,7 +50,7 @@ export default function Home() {
   const uploadedData = selectedFileIndex !== null ? files[selectedFileIndex] : null;
 
   // Tab management functions
-  const openTabForFile = (fileIndex: number) => {
+  const openTabForFile = useCallback((fileIndex: number) => {
     const file = files[fileIndex];
     const tabId = `data-${fileIndex}`;
 
@@ -72,9 +72,9 @@ export default function Home() {
 
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(tabId);
-  };
+  }, [files, tabs]);
 
-  const openDashboardTab = () => {
+  const openDashboardTab = useCallback(() => {
     const tabId = "dashboard";
 
     // Check if tab already exists
@@ -94,7 +94,7 @@ export default function Home() {
 
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(tabId);
-  };
+  }, [tabs]);
 
   const handleTabClose = (tabId: string) => {
     const newTabs = tabs.filter(t => t.id !== tabId);
@@ -165,7 +165,7 @@ export default function Home() {
 
       setShouldOpenTabs(null);
     }
-  }, [files, shouldOpenTabs, tabs]);
+  }, [files, shouldOpenTabs, tabs, openTabForFile]);
 
   // Keyboard shortcuts for toggling panels
   useEffect(() => {

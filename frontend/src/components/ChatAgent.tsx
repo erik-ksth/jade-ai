@@ -60,7 +60,7 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
           if (uploadedData && !isLoading) {
                inputRef.current?.focus();
           }
-     }, [uploadedData]);
+     }, [uploadedData, isLoading]);
 
      // Auto-focus input when loading completes
      useEffect(() => {
@@ -79,7 +79,8 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
      // Custom components for markdown rendering - accepts isUserMessage to conditionally style
      const getMarkdownComponents = (isUserMessage: boolean): Components => ({
           code: (props) => {
-               const { children, className, ...rest } = props;
+               // eslint-disable-next-line @typescript-eslint/no-unused-vars
+               const { children, className, ref, ...rest } = props;
                const match = /language-(\w+)/.exec(className || '');
                const isInline = !match;
                const codeString = String(children).replace(/\n$/, '');
@@ -142,14 +143,14 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                          </summary>
                          <SyntaxHighlighter
                               language={match ? match[1] : 'python'}
-                              style={vscDarkPlus}
+                              style={vscDarkPlus as any} // eslint-disable-line @typescript-eslint/no-explicit-any
                               customStyle={{
                                    margin: '0',
                                    borderRadius: '0.5rem',
                                    fontSize: '0.875rem',
                                    padding: '1rem',
                                    border: '1px solid #334155',
-                              } as any}
+                              } as any} // eslint-disable-line @typescript-eslint/no-explicit-any
                               {...rest}
                          >
                               {codeString}
