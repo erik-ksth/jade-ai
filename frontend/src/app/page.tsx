@@ -129,7 +129,8 @@ export default function Home() {
   useEffect(() => {
     const clearBackendState = async () => {
       try {
-        await fetch('http://localhost:8000/clear', {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        await fetch(`${apiUrl}/clear`, {
           method: 'POST',
         });
       } catch (error) {
@@ -233,7 +234,8 @@ export default function Home() {
     // If the file has a sheet_name, switch to that sheet in the backend
     if (selectedFile.sheet_name) {
       try {
-        const response = await fetch('http://localhost:8000/switch-sheet', {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${apiUrl}/switch-sheet`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -379,7 +381,8 @@ export default function Home() {
       };
 
       // Connect to streaming endpoint
-      const response = await fetch('http://localhost:8000/chat/stream', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
