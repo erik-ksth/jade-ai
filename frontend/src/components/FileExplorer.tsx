@@ -272,7 +272,7 @@ export default function FileExplorer({
           <div className="flex-1 p-3 h-full w-full">
                <div className="h-full w-full flex flex-col">
                     <div className="flex-shrink-0 pb-3 px-1">
-                         <h2 className="text-base font-semibold text-slate-700">Files</h2>
+                         <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300">Files</h2>
                     </div>
                     <div className="flex-1 flex flex-col min-h-0 px-1">
                          {/* Upload Button */}
@@ -289,7 +289,7 @@ export default function FileExplorer({
                               <Button
                                    asChild
                                    disabled={isLoading}
-                                   className="w-full bg-slate-700 hover:bg-slate-800 text-white"
+                                   className="w-full bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 text-white"
                                    size="sm"
                               >
                                    <label
@@ -304,7 +304,7 @@ export default function FileExplorer({
                          {/* File List */}
                          <div className="flex-1 overflow-y-auto space-y-1">
                               {files.length === 0 ? (
-                                   <div className="flex items-center justify-center h-full text-sm text-slate-500 text-center px-2">
+                                   <div className="flex items-center justify-center h-full text-sm text-slate-500 dark:text-slate-400 text-center px-2">
                                         No files uploaded yet
                                    </div>
                               ) : (
@@ -315,8 +315,8 @@ export default function FileExplorer({
                     group flex items-center justify-between p-1.5 rounded-lg
                     transition-all duration-200 text-sm
                     ${selectedFileIndex === index
-                                                       ? 'bg-slate-100 border border-slate-300 shadow-sm'
-                                                       : 'hover:bg-slate-50 border border-transparent hover:border-slate-200'
+                                                       ? 'bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 shadow-sm'
+                                                       : 'hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700'
                                                   }
                   `}
                                         >
@@ -324,7 +324,7 @@ export default function FileExplorer({
                                                   className="flex-1 min-w-0 cursor-pointer"
                                                   onClick={() => onFileSelect(index)}
                                              >
-                                                  <div className="truncate font-medium text-slate-700" title={file.filename}>
+                                                  <div className="truncate font-medium text-slate-700 dark:text-slate-300" title={file.filename}>
                                                        {file.filename}
                                                   </div>
                                              </div>
@@ -332,10 +332,10 @@ export default function FileExplorer({
                                              <DropdownMenu>
                                                   <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                                                        <button
-                                                            className="ml-2 p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-200 rounded"
+                                                            className="ml-2 p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-200 dark:hover:bg-slate-700 rounded"
                                                             title="More options"
                                                        >
-                                                            <MoreVertical className="w-4 h-4 text-slate-600" />
+                                                            <MoreVertical className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                                                        </button>
                                                   </DropdownMenuTrigger>
                                                   <DropdownMenuContent align="end" className="w-40">

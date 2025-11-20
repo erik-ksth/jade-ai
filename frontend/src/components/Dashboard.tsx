@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { UploadedData, ChartData, TextElement, BoxElement } from "../../../shared/types";
 import { X, Type, Printer, Square } from "lucide-react";
@@ -71,11 +72,39 @@ export default function Dashboard({
      onUpdateBoxElement,
      onRemoveBoxElement
 }: DashboardProps) {
+     const { resolvedTheme } = useTheme();
      const [selectedChart, setSelectedChart] = useState<number | null>(null);
      const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
      const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
      const [editingTextId, setEditingTextId] = useState<string | null>(null);
      const textInputRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+     const [chartKey, setChartKey] = useState(0);
+
+     // Force chart re-render when theme changes
+     useEffect(() => {
+          setChartKey(prev => prev + 1);
+     }, [resolvedTheme]);
+
+     // Update box elements with default colors when theme changes
+     useEffect(() => {
+          if (!onUpdateBoxElement) return;
+
+          boxElements.forEach(box => {
+               // Only update boxes that are using default colors (white or dark slate)
+               const isDefaultLightBg = box.backgroundColor === '#ffffff';
+               const isDefaultDarkBg = box.backgroundColor === '#1e293b';
+               const isDefaultLightBorder = box.borderColor === '#e2e8f0';
+               const isDefaultDarkBorder = box.borderColor === '#475569';
+
+               if ((isDefaultLightBg || isDefaultDarkBg) && (isDefaultLightBorder || isDefaultDarkBorder)) {
+                    const isDarkMode = resolvedTheme === 'dark';
+                    onUpdateBoxElement(box.id, {
+                         backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                         borderColor: isDarkMode ? '#475569' : '#e2e8f0',
+                    });
+               }
+          });
+     }, [resolvedTheme, boxElements, onUpdateBoxElement]);
 
      // Context menu state
      const [contextMenu, setContextMenu] = useState<{
@@ -95,6 +124,8 @@ export default function Dashboard({
           if (onAddTextElement) {
                // Offset each new text box so they don't stack on top of each other
                const offset = textElements.length * 30;
+               // Detect dark mode for default text color
+               const isDarkMode = document.documentElement.classList.contains('dark');
                const newTextElement: TextElement = {
                     id: `text-${Date.now()}`,
                     content: "Double click to edit",
@@ -104,7 +135,7 @@ export default function Dashboard({
                     height: 100,
                     fontSize: 16,
                     fontWeight: "normal",
-                    color: "#1e293b",
+                    color: isDarkMode ? "#e2e8f0" : "#1e293b",
                };
                onAddTextElement(newTextElement);
           }
@@ -114,14 +145,16 @@ export default function Dashboard({
           if (onAddBoxElement) {
                // Offset each new box so they don't stack on top of each other
                const offset = boxElements.length * 30;
+               // Detect dark mode for default box colors
+               const isDarkMode = document.documentElement.classList.contains('dark');
                const newBoxElement: BoxElement = {
                     id: `box-${Date.now()}`,
                     x: 100 + offset,
                     y: 100 + offset,
                     width: 300,
                     height: 200,
-                    backgroundColor: "#ffffff",
-                    borderColor: "#e2e8f0",
+                    backgroundColor: isDarkMode ? "#1e293b" : "#ffffff",
+                    borderColor: isDarkMode ? "#475569" : "#e2e8f0",
                     borderWidth: 1,
                     borderRadius: 8,
                };
@@ -301,12 +334,12 @@ export default function Dashboard({
                >
                     <div
                          className={`relative h-full w-full cursor-pointer transition-all duration-200 backdrop-blur-sm shadow-lg ${isSelected
-                              ? 'ring-2 ring-blue-400'
+                              ? 'ring-2 ring-blue-400 dark:ring-blue-500'
                               : ''
                               }`}
                          style={{
-                              backgroundColor: boxElement.backgroundColor || '#ffffff',
-                              border: `${boxElement.borderWidth || 1}px solid ${boxElement.borderColor || '#e2e8f0'}`,
+                              backgroundColor: boxElement.backgroundColor || (resolvedTheme === 'dark' ? '#1e293b' : '#ffffff'),
+                              border: `${boxElement.borderWidth || 1}px solid ${boxElement.borderColor || (resolvedTheme === 'dark' ? '#475569' : '#e2e8f0')}`,
                               borderRadius: `${boxElement.borderRadius || 8}px`,
                          }}
                          onClick={() => {
@@ -326,7 +359,7 @@ export default function Dashboard({
                                         onRemoveBoxElement(boxElement.id);
                                         setSelectedBoxId(null);
                                    }}
-                                   className="no-print absolute -top-3 -right-3 h-9 w-9 rounded-full p-0 shadow-lg hover:shadow-xl z-20 bg-slate-700 hover:bg-slate-800 border-2 border-white"
+                                   className="no-print absolute -top-3 -right-3 h-9 w-9 rounded-full p-0 shadow-lg hover:shadow-xl z-20 bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 border-2 border-white dark:border-slate-900"
                               >
                                    <X className="h-4 w-4" />
                               </Button>
@@ -368,7 +401,7 @@ export default function Dashboard({
                >
                     <div
                          className={`relative h-full w-full p-2 cursor-pointer transition-all duration-200 ${isSelected
-                              ? 'ring-2 ring-blue-400'
+                              ? 'ring-2 ring-blue-400 dark:ring-blue-500'
                               : ''
                               }`}
                          onClick={() => {
@@ -390,12 +423,15 @@ export default function Dashboard({
                               }}
                               contentEditable={isEditing}
                               suppressContentEditableWarning
-                              className={`h-full w-full outline-none overflow-auto break-words ${isEditing ? 'cursor-text' : 'cursor-pointer'
+                              className={`h-full w-full outline-none overflow-auto break-words text-slate-900 dark:text-slate-100 ${isEditing ? 'cursor-text' : 'cursor-pointer'
                                    }`}
                               style={{
                                    fontSize: `${textElement.fontSize || 16}px`,
                                    fontWeight: textElement.fontWeight || "normal",
-                                   color: textElement.color || "#1e293b",
+                                   // Only apply color if it's not the old default dark color
+                                   ...(textElement.color && textElement.color !== "#1e293b" && textElement.color !== "inherit"
+                                        ? { color: textElement.color }
+                                        : {}),
                               }}
                               onKeyDown={(e) => {
                                    if (e.key === 'Escape' && isEditing) {
@@ -417,7 +453,7 @@ export default function Dashboard({
                                         onRemoveTextElement(textElement.id);
                                         setSelectedTextId(null);
                                    }}
-                                   className="no-print absolute -top-3 -right-3 h-9 w-9 rounded-full p-0 shadow-lg hover:shadow-xl z-20 bg-slate-700 hover:bg-slate-800 border-2 border-white"
+                                   className="no-print absolute -top-3 -right-3 h-9 w-9 rounded-full p-0 shadow-lg hover:shadow-xl z-20 bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 border-2 border-white dark:border-slate-900"
                               >
                                    <X className="h-4 w-4" />
                               </Button>
@@ -442,12 +478,20 @@ export default function Dashboard({
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const getChartOptions = (type: string): any => {
+               // Use theme from hook for reactive updates
+               const isDarkMode = resolvedTheme === 'dark';
+               const textColor = isDarkMode ? '#e2e8f0' : '#334155';
+               const gridColor = isDarkMode ? '#334155' : '#e2e8f0';
+
                const baseOptions = {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
                          legend: {
                               position: 'top' as const,
+                              labels: {
+                                   color: textColor,
+                              },
                          },
                          title: {
                               display: false,
@@ -467,6 +511,15 @@ export default function Dashboard({
                               scales: {
                                    r: {
                                         beginAtZero: true,
+                                        ticks: {
+                                             color: textColor,
+                                        },
+                                        grid: {
+                                             color: gridColor,
+                                        },
+                                        pointLabels: {
+                                             color: textColor,
+                                        },
                                    },
                               },
                          };
@@ -475,8 +528,22 @@ export default function Dashboard({
                          return {
                               ...baseOptions,
                               scales: {
+                                   x: {
+                                        ticks: {
+                                             color: textColor,
+                                        },
+                                        grid: {
+                                             color: gridColor,
+                                        },
+                                   },
                                    y: {
                                         beginAtZero: true,
+                                        ticks: {
+                                             color: textColor,
+                                        },
+                                        grid: {
+                                             color: gridColor,
+                                        },
                                    },
                               },
                          };
@@ -488,9 +555,21 @@ export default function Dashboard({
                               scales: {
                                    x: {
                                         type: 'linear' as const,
+                                        ticks: {
+                                             color: textColor,
+                                        },
+                                        grid: {
+                                             color: gridColor,
+                                        },
                                    },
                                    y: {
                                         type: 'linear' as const,
+                                        ticks: {
+                                             color: textColor,
+                                        },
+                                        grid: {
+                                             color: gridColor,
+                                        },
                                    },
                               },
                          };
@@ -499,8 +578,22 @@ export default function Dashboard({
                          return {
                               ...baseOptions,
                               scales: {
+                                   x: {
+                                        ticks: {
+                                             color: textColor,
+                                        },
+                                        grid: {
+                                             color: gridColor,
+                                        },
+                                   },
                                    y: {
                                         beginAtZero: true,
+                                        ticks: {
+                                             color: textColor,
+                                        },
+                                        grid: {
+                                             color: gridColor,
+                                        },
                                    },
                               },
                          };
@@ -529,7 +622,7 @@ export default function Dashboard({
 
           return (
                <Rnd
-                    key={index}
+                    key={`chart-${index}-${chartKey}`}
                     default={{
                          x: 50 + (index * 50), // Offset each chart slightly
                          y: 50 + (index * 30),
@@ -551,11 +644,11 @@ export default function Dashboard({
                          onContextMenu={(e) => handleContextMenu(e, 'chart', index)}
                     >
                          <div className={`h-full w-full cursor-pointer transition-all duration-200 ${isSelected
-                              ? 'ring-2 ring-blue-400'
+                              ? 'ring-2 ring-blue-400 dark:ring-blue-500'
                               : ''
                               }`}>
                               <div className="cursor-move pb-2">
-                                   <h3 className="text-slate-700 text-base font-semibold">{chartTitle}</h3>
+                                   <h3 className="text-slate-700 dark:text-slate-300 text-base font-semibold">{chartTitle}</h3>
                               </div>
                               <div className="h-[calc(100%-32px)]">
                                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -573,7 +666,7 @@ export default function Dashboard({
                                         onRemoveChart(index);
                                         setSelectedChart(null);
                                    }}
-                                   className="no-print absolute -top-3 -right-3 h-9 w-9 rounded-full p-0 shadow-lg hover:shadow-xl z-20 bg-slate-700 hover:bg-slate-800 border-2 border-white"
+                                   className="no-print absolute -top-3 -right-3 h-9 w-9 rounded-full p-0 shadow-lg hover:shadow-xl z-20 bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 border-2 border-white dark:border-slate-900"
                               >
                                    <X className="h-4 w-4" />
                               </Button>
@@ -584,10 +677,10 @@ export default function Dashboard({
      };
 
      return (
-          <div className="h-full w-full relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50">
+          <div className="h-full w-full relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
                {/* Subtle geometric background */}
                <div
-                    className="absolute inset-0 opacity-30"
+                    className="absolute inset-0 opacity-30 dark:opacity-10"
                     style={{
                          backgroundImage: `linear-gradient(to right, #f1f5f9 1px, transparent 1px),
                                           linear-gradient(to bottom, #f1f5f9 1px, transparent 1px)`,
@@ -600,20 +693,20 @@ export default function Dashboard({
                     {/* Print Button */}
                     <Button
                          onClick={handlePrint}
-                         className="h-12 w-12 rounded-full shadow-lg hover:shadow-xl bg-slate-600 hover:bg-slate-700 border-2 border-white"
+                         className="h-12 w-12 rounded-full shadow-lg hover:shadow-xl bg-slate-600 dark:bg-slate-700 hover:bg-slate-700 dark:hover:bg-slate-600 border-2 border-white dark:border-slate-800"
                          title="Print Dashboard"
                     >
-                         <Printer className="h-5 w-5" />
+                         <Printer className="h-5 w-5 text-white" />
                     </Button>
 
                     {/* Add Box Button */}
                     {onAddBoxElement && (
                          <Button
                               onClick={handleAddBox}
-                              className="h-12 w-12 rounded-full shadow-lg hover:shadow-xl bg-slate-600 hover:bg-slate-700 border-2 border-white"
+                              className="h-12 w-12 rounded-full shadow-lg hover:shadow-xl bg-slate-600 dark:bg-slate-700 hover:bg-slate-700 dark:hover:bg-slate-600 border-2 border-white dark:border-slate-800"
                               title="Add Box"
                          >
-                              <Square className="h-5 w-5" />
+                              <Square className="h-5 w-5 text-white" />
                          </Button>
                     )}
 
@@ -621,10 +714,10 @@ export default function Dashboard({
                     {onAddTextElement && (
                          <Button
                               onClick={handleAddText}
-                              className="h-12 w-12 rounded-full shadow-lg hover:shadow-xl bg-slate-600 hover:bg-slate-700 border-2 border-white"
+                              className="h-12 w-12 rounded-full shadow-lg hover:shadow-xl bg-slate-600 dark:bg-slate-700 hover:bg-slate-700 dark:hover:bg-slate-600 border-2 border-white dark:border-slate-800"
                               title="Add Text"
                          >
-                              <Type className="h-5 w-5" />
+                              <Type className="h-5 w-5 text-white" />
                          </Button>
                     )}
                </div>
@@ -642,13 +735,13 @@ export default function Dashboard({
                {charts.length === 0 && textElements.length === 0 && boxElements.length === 0 && (
                     <div className="absolute inset-0 flex items-center justify-center">
                          <div className="text-center">
-                              <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                                   <svg className="w-10 h-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center">
+                                   <svg className="w-10 h-10 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                                    </svg>
                               </div>
-                              <h3 className="text-lg font-semibold text-slate-700 mb-2">No visualizations yet</h3>
-                              <p className="text-sm text-slate-500">Ask the AI to create a chart or click the T button to add text</p>
+                              <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">No visualizations yet</h3>
+                              <p className="text-sm text-slate-500 dark:text-slate-400">Ask the AI to create a chart or click the T button to add text</p>
                          </div>
                     </div>
                )}
@@ -657,7 +750,7 @@ export default function Dashboard({
                {contextMenu && (
                     <div
                          ref={contextMenuRef}
-                         className="fixed bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50 min-w-[180px]"
+                         className="fixed bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 z-50 min-w-[180px]"
                          style={{
                               left: `${contextMenu.x}px`,
                               top: `${contextMenu.y}px`,
@@ -665,13 +758,13 @@ export default function Dashboard({
                          onClick={(e) => e.stopPropagation()}
                     >
                          <button
-                              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 transition-colors"
+                              className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                               onClick={handleBringToFront}
                          >
                               Bring to Front
                          </button>
                          <button
-                              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 transition-colors"
+                              className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                               onClick={handleSendToBack}
                          >
                               Send to Back

@@ -88,7 +88,7 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
 
                if (isInline) {
                     return (
-                         <code className="bg-slate-100 text-rose-600 px-1.5 py-0.5 rounded text-sm font-mono border border-slate-200">
+                         <code className="bg-slate-100 dark:bg-slate-800 text-rose-600 dark:text-rose-400 px-1.5 py-0.5 rounded text-sm font-mono border border-slate-200 dark:border-slate-700">
                               {children}
                          </code>
                     );
@@ -105,7 +105,7 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                                                   const details = e.currentTarget.closest('details');
                                                   if (details) details.open = !details.open;
                                              }}
-                                             className="opacity-0 group-hover:opacity-100 transition-opacity bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs flex items-center gap-1.5 shadow-lg"
+                                             className="opacity-0 group-hover:opacity-100 transition-opacity bg-slate-700 dark:bg-slate-600 hover:bg-slate-600 dark:hover:bg-slate-500 text-white px-3 py-1.5 rounded text-xs flex items-center gap-1.5 shadow-lg"
                                         >
                                              <span className="group-open:hidden flex items-center gap-1.5">
                                                   <ChevronDown className="h-3 w-3" />
@@ -121,7 +121,7 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                                                   e.preventDefault();
                                                   copyCode(codeString, codeIndex);
                                              }}
-                                             className="opacity-0 group-hover:opacity-100 transition-opacity bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs flex items-center gap-1.5 shadow-lg"
+                                             className="opacity-0 group-hover:opacity-100 transition-opacity bg-slate-700 dark:bg-slate-600 hover:bg-slate-600 dark:hover:bg-slate-500 text-white px-3 py-1.5 rounded text-xs flex items-center gap-1.5 shadow-lg"
                                         >
                                              {copiedCode === codeIndex ? (
                                                   <>
@@ -136,7 +136,7 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                                              )}
                                         </button>
                                    </div>
-                                   <div className="bg-slate-800 text-slate-400 px-4 py-2 rounded-md border border-slate-700 text-xs font-mono flex items-center justify-between group-open:hidden">
+                                   <div className="bg-slate-800 dark:bg-slate-700 text-slate-400 dark:text-slate-300 px-4 py-2 rounded-md border border-slate-700 dark:border-slate-600 text-xs font-mono flex items-center justify-between group-open:hidden">
                                         <span>Code block collapsed ({match ? match[1] : 'python'})</span>
                                    </div>
                               </div>
@@ -159,13 +159,13 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                );
           },
           p: ({ children }) => (
-               <p className={`mb-3 last:mb-0 leading-relaxed ${isUserMessage ? 'text-white' : 'text-slate-700'}`}>{children}</p>
+               <p className={`mb-3 last:mb-0 leading-relaxed ${isUserMessage ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>{children}</p>
           ),
           strong: ({ children }) => (
-               <strong className={`font-semibold ${isUserMessage ? 'text-white' : 'text-slate-900'}`}>{children}</strong>
+               <strong className={`font-semibold ${isUserMessage ? 'text-white' : 'text-slate-900 dark:text-slate-100'}`}>{children}</strong>
           ),
           em: ({ children }) => (
-               <em className={`italic ${isUserMessage ? 'text-slate-200' : 'text-slate-600'}`}>{children}</em>
+               <em className={`italic ${isUserMessage ? 'text-slate-200' : 'text-slate-600 dark:text-slate-400'}`}>{children}</em>
           ),
           ul: ({ children }) => (
                <ul className="list-disc list-outside ml-4 mb-3 space-y-1.5">{children}</ul>
@@ -174,42 +174,42 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                <ol className="list-decimal list-outside ml-4 mb-3 space-y-1.5">{children}</ol>
           ),
           li: ({ children }) => (
-               <li className={`text-sm leading-relaxed pl-1 ${isUserMessage ? 'text-white' : 'text-slate-700'}`}>{children}</li>
+               <li className={`text-sm leading-relaxed pl-1 ${isUserMessage ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>{children}</li>
           ),
           h1: ({ children }) => (
-               <h1 className={`text-xl font-bold mb-3 mt-4 first:mt-0 ${isUserMessage ? 'text-white' : 'text-slate-900'}`}>{children}</h1>
+               <h1 className={`text-xl font-bold mb-3 mt-4 first:mt-0 ${isUserMessage ? 'text-white' : 'text-slate-900 dark:text-slate-100'}`}>{children}</h1>
           ),
           h2: ({ children }) => (
-               <h2 className={`text-lg font-bold mb-2 mt-3 first:mt-0 ${isUserMessage ? 'text-white' : 'text-slate-900'}`}>{children}</h2>
+               <h2 className={`text-lg font-bold mb-2 mt-3 first:mt-0 ${isUserMessage ? 'text-white' : 'text-slate-900 dark:text-slate-100'}`}>{children}</h2>
           ),
           h3: ({ children }) => (
-               <h3 className={`text-base font-semibold mb-2 mt-2 first:mt-0 ${isUserMessage ? 'text-white' : 'text-slate-800'}`}>{children}</h3>
+               <h3 className={`text-base font-semibold mb-2 mt-2 first:mt-0 ${isUserMessage ? 'text-white' : 'text-slate-800 dark:text-slate-200'}`}>{children}</h3>
           ),
           table: ({ children }) => (
-               <div className="overflow-x-auto my-4 rounded-lg border border-slate-200 shadow-sm">
-                    <table className="min-w-full divide-y divide-slate-200">{children}</table>
+               <div className="overflow-x-auto my-4 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">{children}</table>
                </div>
           ),
           thead: ({ children }) => (
-               <thead className="bg-slate-50">{children}</thead>
+               <thead className="bg-slate-50 dark:bg-slate-800">{children}</thead>
           ),
           tbody: ({ children }) => (
-               <tbody className="bg-white divide-y divide-slate-200">{children}</tbody>
+               <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-200 dark:divide-slate-700">{children}</tbody>
           ),
           tr: ({ children }) => (
                <tr>{children}</tr>
           ),
           th: ({ children }) => (
-               <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-b-2 border-slate-300 ${isUserMessage ? 'text-slate-200 bg-slate-600' : 'text-slate-700 bg-slate-100'}`}>{children}</th>
+               <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-b-2 border-slate-300 dark:border-slate-600 ${isUserMessage ? 'text-slate-200 bg-slate-600' : 'text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800'}`}>{children}</th>
           ),
           td: ({ children }) => (
-               <td className={`px-4 py-3 text-sm border-b border-slate-100 ${isUserMessage ? 'text-white' : 'text-slate-700'}`}>{children}</td>
+               <td className={`px-4 py-3 text-sm border-b border-slate-100 dark:border-slate-700 ${isUserMessage ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>{children}</td>
           ),
           blockquote: ({ children }) => (
-               <blockquote className={`border-l-4 pl-4 my-3 italic ${isUserMessage ? 'border-slate-500 text-slate-200' : 'border-slate-300 text-slate-600'}`}>{children}</blockquote>
+               <blockquote className={`border-l-4 pl-4 my-3 italic ${isUserMessage ? 'border-slate-500 text-slate-200' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400'}`}>{children}</blockquote>
           ),
           hr: () => (
-               <hr className={`my-4 ${isUserMessage ? 'border-slate-500' : 'border-slate-200'}`} />
+               <hr className={`my-4 ${isUserMessage ? 'border-slate-500' : 'border-slate-200 dark:border-slate-700'}`} />
           ),
      });
 
@@ -224,20 +224,20 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
      };
 
      return (
-          <div className="w-full h-full border-l border-slate-200 bg-slate-50 p-3">
+          <div className="w-full h-full border-l border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3">
                <div className="h-full flex flex-col">
                     <div className="flex-shrink-0 pb-3 px-1">
                          <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2">
-                                   <Sparkles className="h-5 w-5 text-slate-700" />
-                                   <span className="text-sm font-medium text-slate-700">AI Assistant</span>
+                                   <Sparkles className="h-5 w-5 text-slate-700 dark:text-slate-300" />
+                                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">AI Assistant</span>
                               </div>
                               {messages.length > 0 && onClearConversation && (
                                    <Button
                                         variant="ghost"
                                         size="sm"
                                         onClick={onClearConversation}
-                                        className="h-8 px-2 text-slate-600 hover:text-red-600 hover:bg-red-50"
+                                        className="h-8 px-2 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
                                         title="Clear conversation"
                                    >
                                         <BrushCleaning className="h-4 w-4" />
@@ -252,29 +252,29 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                               {messages.length === 0 && uploadedData && (
                                    <div className="flex flex-col items-center justify-center h-full space-y-4 px-4">
                                         <div className="text-center mb-4">
-                                             <Sparkles className="h-10 w-10 text-slate-400 mx-auto mb-3" />
-                                             <h3 className="text-lg font-semibold text-slate-700 mb-1">Ask me anything about your data</h3>
-                                             <p className="text-sm text-slate-500">Try one of these suggestions:</p>
+                                             <Sparkles className="h-10 w-10 text-slate-400 dark:text-slate-500 mx-auto mb-3" />
+                                             <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-1">Ask me anything about your data</h3>
+                                             <p className="text-sm text-slate-500 dark:text-slate-400">Try one of these suggestions:</p>
                                         </div>
                                         <div className="w-full max-w-md space-y-2">
                                              <button
                                                   onClick={() => onSendMessage("Show me a summary of this dataset")}
                                                   disabled={isLoading}
-                                                  className="w-full text-left p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors text-sm text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                  className="w-full text-left p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors text-sm text-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
                                              >
                                                   <span className="font-medium">Show me a summary of this dataset</span>
                                              </button>
                                              <button
                                                   onClick={() => onSendMessage("Remove rows with missing values")}
                                                   disabled={isLoading}
-                                                  className="w-full text-left p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors text-sm text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                  className="w-full text-left p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors text-sm text-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
                                              >
                                                   <span className="font-medium">Remove rows with missing values</span>
                                              </button>
                                              <button
                                                   onClick={() => onSendMessage("Create a chart showing the top 10 values")}
                                                   disabled={isLoading}
-                                                  className="w-full text-left p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors text-sm text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                  className="w-full text-left p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors text-sm text-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
                                              >
                                                   <span className="font-medium">Create a chart showing the top 10 values</span>
                                              </button>
@@ -287,7 +287,7 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                                         {/* Message Content */}
                                         <div
                                              className={message.role === 'user'
-                                                  ? 'p-3 rounded-lg shadow-sm bg-slate-700 text-white ml-8 border border-slate-600'
+                                                  ? 'p-3 rounded-lg shadow-sm bg-slate-700 dark:bg-slate-800 text-white ml-8 border border-slate-600 dark:border-slate-700'
                                                   : 'py-1'
                                              }
                                         >
@@ -304,7 +304,7 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                                         {/* Error Status */}
                                         {message.error && (
                                              <div className="mr-8 ml-4">
-                                                  <div className="bg-red-50 text-red-800 p-3 rounded-lg text-sm flex items-center gap-2 border border-red-200 shadow-sm">
+                                                  <div className="bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-300 p-3 rounded-lg text-sm flex items-center gap-2 border border-red-200 dark:border-red-800 shadow-sm">
                                                        <span>✕</span>
                                                        <span className="font-medium">Error: {message.error}</span>
                                                   </div>
@@ -319,8 +319,8 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                          {/* Loading Indicator */}
                          {isLoading && (
                               <div className="flex items-center justify-center py-2">
-                                   <div className="flex items-center gap-3 text-slate-600">
-                                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-300 border-t-slate-700"></div>
+                                   <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400">
+                                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-300 dark:border-slate-600 border-t-slate-700 dark:border-t-slate-300"></div>
                                         <span className="text-sm font-medium">AI is thinking...</span>
                                    </div>
                               </div>
@@ -332,12 +332,12 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                               <div className="flex items-center justify-between">
                                    {uploadedData ? (
                                         <div className="flex items-center gap-2 text-xs">
-                                             <span className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-medium truncate max-w-[200px] border border-slate-200" title={uploadedData.filename}>
+                                             <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg font-medium truncate max-w-[200px] border border-slate-200 dark:border-slate-700" title={uploadedData.filename}>
                                                   {uploadedData.filename}
                                              </span>
                                         </div>
                                    ) : (
-                                        <div className="text-xs text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
+                                        <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-800">
                                              <span className="font-medium">⚠ No file selected</span>
                                         </div>
                                    )}
@@ -351,13 +351,13 @@ export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoa
                                         placeholder={uploadedData ? "Ask about your data..." : "Select a file first..."}
                                         onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
                                         disabled={isLoading || !uploadedData}
-                                        className="border-slate-300 focus:border-slate-400 focus:ring-slate-400"
+                                        className="border-slate-300 dark:border-slate-700 focus:border-slate-400 dark:focus:border-slate-500 focus:ring-slate-400 dark:focus:ring-slate-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                                    />
                                    <Button
                                         onClick={handleSendMessage}
                                         size="icon"
                                         disabled={isLoading || !newMessage.trim() || !uploadedData}
-                                        className="bg-slate-700 hover:bg-slate-800 text-white"
+                                        className="bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 text-white"
                                    >
                                         <Send className="h-4 w-4" />
                                    </Button>
