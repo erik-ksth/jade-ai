@@ -15,8 +15,7 @@ class ResponseGenerator:
         
         # If execution failed, add error to response
         if not state.get("execution_success", True):
-            error_msg = state.get("execution_error", "Unknown error")
-            state["ai_response"] = state.get("ai_response", "") + f"\n\n❌ **Error:** {error_msg}"
+            # The error is sent to the client in the completion event and shown there
             return state
         
         # If there's print output, generate narrative
@@ -33,19 +32,20 @@ Code executed:
 Print output:
 {state['print_output']}
 
-Please provide a clear, narrative explanation of what this output means in the context of the data analysis.
+Summarize the result for the user.
 
-**Format your response in proper Markdown:**
-- Use **bold text** for important points
-- Use *italic text* for emphasis
-- Use `inline code` for specific values or technical terms
-- Use proper line breaks between paragraphs
-- Keep it concise and informative
-- Explain the results in a conversational, human tone that helps the user understand what happened to their data
+Rules:
+- At most two short sentences or three bullet points.
+- Cite the actual numbers from the output (row counts, values changed, totals).
+- Do not include code, headings, or emoji, and do not restate what the code does line by line.
+- If the output reveals a remaining problem, mention it in one short sentence.
 """
                 
                 # Get streaming callback from state if available
                 stream_callback = state.get("stream_callback")
+                if stream_callback:
+                    # Separate the summary from the code block streamed before it
+                    stream_callback("\n\n")
                 
                 # Get narrative from AI
                 narrative_response = self.ai_agent.generate_response(

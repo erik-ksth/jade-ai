@@ -1,5 +1,7 @@
 """Upload routes for file handling"""
 
+import uuid
+
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from api.utils import dataframe_to_json_safe
 from services.file_service import file_service
@@ -23,33 +25,33 @@ async def upload_file(file: UploadFile = File(...)):
         # Read file content
         content = await file.read()
         
+        # Every upload gets its own keys so files with the same sheet names
+        # (e.g. two CSVs, both "Sheet1") don't overwrite each other
+        upload_id = uuid.uuid4().hex[:8]
+
         # Parse file based on type
         if file_service.is_csv(file.filename):
-            # CSV file - single sheet
-            df = file_service.parse_csv(content)
-            df_state.add_sheet("Sheet1", df)
-            df_state.switch_sheet("Sheet1")
-            has_multiple_sheets = False
-            sheets = ["Sheet1"]
-            sheets_info = [{
-                "name": "Sheet1",
-                "rows": len(df),
-                "columns": len(df.columns),
-                "column_names": df.columns.tolist()
-            }]
+            sheets_dict = {"Sheet1": file_service.parse_csv(content)}
         else:
-            # Excel file - multiple sheets
             sheets_dict = file_service.parse_excel(content)
-            for name, sheet_df in sheets_dict.items():
-                df_state.add_sheet(name, sheet_df)
-            
-            # Switch to first sheet
-            first_sheet = list(sheets_dict.keys())[0]
-            df_state.switch_sheet(first_sheet)
-            has_multiple_sheets = len(sheets_dict) > 1
-            sheets = list(sheets_dict.keys())
-            sheets_info = df_state.get_sheets_info()
-        
+
+        sheets_info = []
+        for name, sheet_df in sheets_dict.items():
+            key = f"{upload_id}:{name}"
+            df_state.add_sheet(key, sheet_df)
+            sheets_info.append({
+                "name": name,
+                "key": key,
+                "rows": len(sheet_df),
+                "columns": len(sheet_df.columns),
+                "column_names": sheet_df.columns.tolist()
+            })
+
+        # Make the first sheet of this upload the active dataset
+        df_state.switch_sheet(sheets_info[0]["key"])
+        has_multiple_sheets = len(sheets_info) > 1
+        sheets = [info["name"] for info in sheets_info]
+
         # Build response with JSON-safe data
         json_safe_data = dataframe_to_json_safe(df_state.current_dataframe)
         json_safe_preview = dataframe_to_json_safe(df_state.current_dataframe.head(5))
@@ -65,6 +67,7 @@ async def upload_file(file: UploadFile = File(...)):
             "sheets": sheets,
             "sheets_info": sheets_info,
             "current_sheet": df_state.current_sheet_name,
+            "dataset_key": df_state.current_sheet_name,
             "has_multiple_sheets": has_multiple_sheets
         }
         

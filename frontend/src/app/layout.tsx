@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Jade AI",
-  description: "AI-powered data analysis platform",
+  description: "Clean, analyze, and chart CSV and Excel data by chatting with an AI analyst.",
 };
 
 export default function RootLayout({

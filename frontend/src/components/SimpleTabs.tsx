@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Table2, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface SimpleTab {
@@ -70,48 +70,66 @@ export default function SimpleTabs({
      return (
           <div className="h-full w-full flex flex-col">
                {/* Tab Bar */}
-               <div className="flex-shrink-0 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center overflow-x-auto">
-                    {tabs.map((tab, index) => (
-                         <div
-                              key={tab.id}
-                              draggable={true}
-                              onDragStart={(e) => handleDragStart(e, index)}
-                              onDragOver={(e) => handleDragOver(e, index)}
-                              onDragLeave={handleDragLeave}
-                              onDrop={(e) => handleDrop(e, index)}
-                              onDragEnd={handleDragEnd}
-                              onClick={() => onTabChange(tab.id)}
-                              className={cn(
-                                   "group flex items-center gap-2 px-3 py-2 text-sm border-r border-slate-200 dark:border-slate-700 cursor-pointer transition-colors min-w-0 select-none",
-                                   activeTabId === tab.id
-                                        ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium"
-                                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700",
-                                   draggedIndex === index && "opacity-40",
-                                   dragOverIndex === index && draggedIndex !== index && "border-l-2 border-l-blue-500 dark:border-l-blue-400"
-                              )}
-                         >
-                              <span className="truncate">{tab.title}</span>
-                              <button
-                                   onClick={(e) => {
-                                        e.stopPropagation();
-                                        onTabClose(tab.id);
+               <div role="tablist" className="flex h-10 shrink-0 items-stretch overflow-x-auto bg-background">
+                    {tabs.map((tab, index) => {
+                         const isActive = activeTabId === tab.id;
+                         const Icon = tab.type === "dashboard" ? LayoutDashboard : Table2;
+                         return (
+                              <div
+                                   key={tab.id}
+                                   role="tab"
+                                   aria-selected={isActive}
+                                   tabIndex={isActive ? 0 : -1}
+                                   draggable={true}
+                                   onDragStart={(e) => handleDragStart(e, index)}
+                                   onDragOver={(e) => handleDragOver(e, index)}
+                                   onDragLeave={handleDragLeave}
+                                   onDrop={(e) => handleDrop(e, index)}
+                                   onDragEnd={handleDragEnd}
+                                   onClick={() => onTabChange(tab.id)}
+                                   onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                             e.preventDefault();
+                                             onTabChange(tab.id);
+                                        }
                                    }}
                                    className={cn(
-                                        "flex-shrink-0 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors",
-                                        activeTabId === tab.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                        "group relative flex min-w-0 max-w-56 cursor-pointer select-none items-center gap-2 border-r pl-3 pr-1.5 text-[13px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50",
+                                        isActive
+                                             ? "border-b border-b-transparent bg-card text-foreground"
+                                             : "border-b text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                                        draggedIndex === index && "opacity-40"
                                    )}
-                                   title="Close tab"
                               >
-                                   <X className="h-3 w-3" />
-                              </button>
-                         </div>
-                    ))}
+                                   {dragOverIndex === index && draggedIndex !== index && (
+                                        <span aria-hidden className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary" />
+                                   )}
+                                   <Icon className={cn("size-3.5 shrink-0", isActive ? "text-primary" : "")} />
+                                   <span className={cn("truncate", isActive && "font-medium")}>{tab.title}</span>
+                                   <button
+                                        onClick={(e) => {
+                                             e.stopPropagation();
+                                             onTabClose(tab.id);
+                                        }}
+                                        className={cn(
+                                             "flex-shrink-0 rounded p-0.5 text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100",
+                                             isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                        )}
+                                        aria-label={`Close ${tab.title}`}
+                                        title="Close tab"
+                                   >
+                                        <X className="size-3.5" />
+                                   </button>
+                              </div>
+                         );
+                    })}
+                    <div aria-hidden className="flex-1 border-b" />
                </div>
 
                {/* Tab Content */}
-               <div className="flex-1 overflow-hidden bg-white dark:bg-slate-900">
+               <div role="tabpanel" className="flex-1 overflow-hidden bg-card">
                     {activeTab ? activeTab.content : (
-                         <div className="h-full flex items-center justify-center text-slate-400 dark:text-slate-500">
+                         <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
                               No tab selected
                          </div>
                     )}

@@ -14,24 +14,23 @@ class IntentClassifier:
         self.system_prompt = """You are an intent classifier for a data analytics platform.
 Analyze the user's message and classify it into one of these intents:
 
-⚠️ **CRITICAL**: Questions asking "HOW", "WHAT SHOULD", "CAN YOU SUGGEST" should be classified as EXPLORE, not the action intent.
+**CRITICAL**: Questions asking "HOW", "WHAT SHOULD", "CAN YOU SUGGEST" should be classified as EXPLORE, not the action intent.
 - "How should I clean this data?" → EXPLORE (asking for advice)
-- "Clean this data" → CLEAN (direct command)
+- "Clean this data" → CLEAN (broad cleaning command)
 - "What can I do to improve quality?" → EXPLORE (asking for options)
-- "Remove duplicates" → CLEAN (direct command)
+- "Remove duplicates" → TRANSFORM (one specific operation)
 
-1. **CLEAN** - Data quality improvement COMMANDS (ONLY direct commands, not questions):
-   - Direct commands to remove duplicates (entire duplicate rows)
-   - Direct commands to fill/impute missing/null values (NaN, None, empty cells)
-   - Direct commands to fix data type inconsistencies
-   - Direct commands to remove empty columns
-   - Direct command: "clean my data" or "improve data quality"
-   Examples: "remove duplicates", "fill missing values", "clean the data", "fix data quality", "impute nulls"
-   
-   **NOT CLEAN**: 
+1. **CLEAN** - BROAD data cleaning commands that ask Jade to find and fix data quality problems on its own.
+   CLEAN runs a multi-pass workflow that assesses and fixes every issue it finds, so use it ONLY when the
+   user asks for general cleaning without naming a single specific operation.
+   Examples: "clean the data", "clean up missing and invalid values", "fix data quality", "fix all the issues",
+   "make this dataset analysis-ready"
+
+   **NOT CLEAN**:
    - Questions: "how should I clean", "what can I do to clean" → EXPLORE
-   - Removing specific rows/columns by index or condition (that's TRANSFORM)
-   - Removing rows with specific values like "unknown", "N/A", etc. (that's TRANSFORM - it's filtering)
+   - One specific operation, even a cleaning one: "remove duplicates", "fill missing values with 0",
+     "convert Quantity to numbers", "drop empty columns" → TRANSFORM
+   - Removing specific rows/columns by index, value, or condition → TRANSFORM
 
 2. **TRANSFORM** - Data transformation and manipulation operations:
    - Removing specific rows or columns (by index, name, or condition)
@@ -40,7 +39,8 @@ Analyze the user's message and classify it into one of these intents:
    - Filtering or selecting data based on conditions
    - Reshaping data (pivot, melt, etc.)
    - Sorting data
-   Examples: "remove the first row", "drop column X", "filter rows where age > 30", "remove unknown values", "remove rows with N/A", "add a new column", "group by category"
+   - Single, specific cleaning operations (remove duplicates, fill nulls, fix one column's type)
+   Examples: "remove the first row", "drop column X", "filter rows where age > 30", "remove unknown values", "remove rows with N/A", "remove duplicates", "fill missing values with 0", "add a new column", "group by category"
 
 3. **ANALYZE** - Statistical analysis:
    - Calculating statistics (mean, median, correlation, etc.)

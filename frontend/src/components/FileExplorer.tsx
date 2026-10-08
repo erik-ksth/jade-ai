@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
      Dialog,
      DialogContent,
      DialogDescription,
+     DialogFooter,
      DialogHeader,
      DialogTitle,
 } from "@/components/ui/dialog";
@@ -24,29 +25,36 @@ import {
      DropdownMenu,
      DropdownMenuContent,
      DropdownMenuItem,
+     DropdownMenuSeparator,
      DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, FileEdit, Trash2, Download } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Download, Plus, FileSpreadsheet, Sheet, Loader2, X } from "lucide-react";
 import { UploadedData } from "../../../shared/types";
+import { formatCount, loadSampleFile, uploadDataset } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 interface FileExplorerProps {
      files: UploadedData[];
      selectedFileIndex: number | null;
      onFileSelect: (index: number) => void;
-     onFileUpload: (data: UploadedData | UploadedData[], initialMessage?: string) => void;
+     onFileUpload: (data: UploadedData | UploadedData[]) => void;
      onFileRemove: (index: number) => void;
      onFileReplace: (index: number, data: UploadedData) => void;
+     onUploadingChange?: (isUploading: boolean) => void;
 }
 
-export default function FileExplorer({
-     files,
-     selectedFileIndex,
-     onFileSelect,
-     onFileUpload,
-     onFileRemove,
-     onFileReplace,
-}: FileExplorerProps) {
+export interface FileExplorerHandle {
+     uploadFile: (file: File) => Promise<void>;
+     uploadSample: () => Promise<void>;
+     openFilePicker: () => void;
+}
+
+const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(function FileExplorer(
+     { files, selectedFileIndex, onFileSelect, onFileUpload, onFileRemove, onFileReplace, onUploadingChange },
+     ref
+) {
      const [isLoading, setIsLoading] = useState(false);
+     const [uploadError, setUploadError] = useState<string | null>(null);
      const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
      const [pendingUploadData, setPendingUploadData] = useState<UploadedData | null>(null);
      const [duplicateIndex, setDuplicateIndex] = useState<number>(-1);
@@ -58,106 +66,20 @@ export default function FileExplorer({
      const [deletingIndex, setDeletingIndex] = useState<number>(-1);
      const fileInputRef = useRef<HTMLInputElement>(null);
 
-     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-          const file = event.target.files?.[0];
-          if (!file) return;
-
-          setIsLoading(true);
-          const formData = new FormData();
-          formData.append('file', file);
-
-          try {
-               const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-               const response = await fetch(`${apiUrl}/upload`, {
-                    method: 'POST',
-                    body: formData,
-               });
-
-               if (!response.ok) {
-                    throw new Error(`Upload failed: ${response.statusText}`);
-               }
-
-               const data = await response.json();
-               console.log('Uploaded data received:', data);
-
-               // Check if file has multiple sheets
-               if (data.has_multiple_sheets && data.sheets_info && data.sheets_info.length > 1) {
-                    console.log('File has multiple sheets:', data.sheets_info);
-
-                    // Create separate entries for each sheet
-                    const allSheets: UploadedData[] = [];
-                    let hasDuplicate = false;
-
-                    for (const sheetInfo of data.sheets_info) {
-                         // For the first sheet (current_sheet), use the data from the response
-                         // For other sheets, they'll load data when selected
-                         const isCurrentSheet = sheetInfo.name === data.current_sheet;
-
-                         const sheetData: UploadedData = {
-                              filename: sheetInfo.name,
-                              original_filename: data.filename,
-                              sheet_name: sheetInfo.name,
-                              rows: sheetInfo.rows,
-                              columns: sheetInfo.columns,
-                              column_names: sheetInfo.column_names,
-                              dtypes: isCurrentSheet ? data.dtypes : {},
-                              preview: isCurrentSheet ? data.preview : [],
-                              data: isCurrentSheet ? data.data : []
-                         };
-
-                         // Check for duplicates
-                         const existingIndex = files.findIndex(f => f.filename === sheetData.filename);
-
-                         if (existingIndex !== -1) {
-                              // Duplicate found - show dialog for first duplicate
-                              setPendingUploadData(sheetData);
-                              setDuplicateIndex(existingIndex);
-                              setNewFileName(generateNewFileName(sheetData.filename));
-                              setShowDuplicateDialog(true);
-                              hasDuplicate = true;
-                              break;
-                         }
-
-                         allSheets.push(sheetData);
-                    }
-
-                    // Upload all sheets at once if no duplicates
-                    if (!hasDuplicate && allSheets.length > 0) {
-                         onFileUpload(allSheets);
-                    }
-               } else {
-                    // Single sheet or CSV file
-                    // Check if filename already exists
-                    const existingIndex = files.findIndex(f => f.filename === data.filename);
-
-                    if (existingIndex !== -1) {
-                         // Duplicate found - show dialog
-                         setPendingUploadData(data);
-                         setDuplicateIndex(existingIndex);
-                         setNewFileName(generateNewFileName(data.filename));
-                         setShowDuplicateDialog(true);
-                    } else {
-                         // No duplicate - upload directly
-                         onFileUpload(data);
-                    }
-               }
-          } catch (error) {
-               console.error('Upload failed:', error);
-          } finally {
-               setIsLoading(false);
-               event.target.value = '';
-          }
+     const setUploading = (value: boolean) => {
+          setIsLoading(value);
+          onUploadingChange?.(value);
      };
 
      const generateNewFileName = (filename: string): string => {
           const extensionMatch = filename.match(/(\.[^.]+)$/);
-          const extension = extensionMatch ? extensionMatch[1] : '';
+          const extension = extensionMatch ? extensionMatch[1] : "";
           const baseName = extension ? filename.slice(0, -extension.length) : filename;
 
           let counter = 1;
           let newName = `${baseName} (${counter})${extension}`;
 
-          while (files.some(f => f.filename === newName)) {
+          while (files.some((f) => f.filename === newName)) {
                counter++;
                newName = `${baseName} (${counter})${extension}`;
           }
@@ -165,31 +87,75 @@ export default function FileExplorer({
           return newName;
      };
 
-     const handleReplace = () => {
-          if (pendingUploadData && duplicateIndex !== -1) {
-               onFileReplace(duplicateIndex, pendingUploadData);
-               setShowDuplicateDialog(false);
-               setPendingUploadData(null);
-               setDuplicateIndex(-1);
+     const processFile = async (file: File) => {
+          if (isLoading) return;
+          setUploading(true);
+          setUploadError(null);
+
+          try {
+               const entries = await uploadDataset(file);
+
+               // Stop at the first name clash and let the user decide
+               const duplicate = entries
+                    .map((entry) => ({ entry, index: files.findIndex((f) => f.filename === entry.filename) }))
+                    .find(({ index }) => index !== -1);
+
+               if (duplicate) {
+                    setPendingUploadData(duplicate.entry);
+                    setDuplicateIndex(duplicate.index);
+                    setNewFileName(generateNewFileName(duplicate.entry.filename));
+                    setShowDuplicateDialog(true);
+               } else {
+                    onFileUpload(entries.length === 1 ? entries[0] : entries);
+               }
+          } catch (error) {
+               setUploadError(
+                    error instanceof Error && error.message !== "Failed to fetch"
+                         ? error.message
+                         : "Couldn't reach the server. Check that the backend is running."
+               );
+          } finally {
+               setUploading(false);
           }
      };
 
-     const handleRename = () => {
-          if (pendingUploadData && newFileName.trim()) {
-               const renamedData = { ...pendingUploadData, filename: newFileName.trim() };
-               onFileUpload(renamedData);
-               setShowDuplicateDialog(false);
-               setPendingUploadData(null);
-               setDuplicateIndex(-1);
-               setNewFileName("");
-          }
+     useImperativeHandle(ref, () => ({
+          uploadFile: processFile,
+          uploadSample: async () => {
+               try {
+                    await processFile(await loadSampleFile());
+               } catch {
+                    setUploadError("Couldn't load the sample dataset.");
+               }
+          },
+          openFilePicker: () => fileInputRef.current?.click(),
+     }));
+
+     const handleInputChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) await processFile(file);
      };
 
-     const handleCancelUpload = () => {
+     const closeDuplicateDialog = () => {
           setShowDuplicateDialog(false);
           setPendingUploadData(null);
           setDuplicateIndex(-1);
           setNewFileName("");
+     };
+
+     const handleReplace = () => {
+          if (pendingUploadData && duplicateIndex !== -1) {
+               onFileReplace(duplicateIndex, pendingUploadData);
+               closeDuplicateDialog();
+          }
+     };
+
+     const handleKeepBoth = () => {
+          if (pendingUploadData && newFileName.trim()) {
+               onFileUpload({ ...pendingUploadData, filename: newFileName.trim() });
+               closeDuplicateDialog();
+          }
      };
 
      const handleStartRename = (index: number, currentName: string) => {
@@ -198,25 +164,17 @@ export default function FileExplorer({
           setShowRenameDialog(true);
      };
 
-     const handleConfirmRename = () => {
-          if (renamingIndex !== -1 && renameValue.trim()) {
-               const updatedFile = { ...files[renamingIndex], filename: renameValue.trim() };
-               onFileReplace(renamingIndex, updatedFile);
-               setShowRenameDialog(false);
-               setRenamingIndex(-1);
-               setRenameValue("");
-          }
-     };
-
-     const handleCancelRename = () => {
+     const closeRenameDialog = () => {
           setShowRenameDialog(false);
           setRenamingIndex(-1);
           setRenameValue("");
      };
 
-     const handleStartDelete = (index: number) => {
-          setDeletingIndex(index);
-          setShowDeleteDialog(true);
+     const handleConfirmRename = () => {
+          if (renamingIndex !== -1 && renameValue.trim()) {
+               onFileReplace(renamingIndex, { ...files[renamingIndex], filename: renameValue.trim() });
+               closeRenameDialog();
+          }
      };
 
      const handleConfirmDelete = () => {
@@ -227,284 +185,241 @@ export default function FileExplorer({
           }
      };
 
-     const handleCancelDelete = () => {
-          setShowDeleteDialog(false);
-          setDeletingIndex(-1);
-     };
-
      const handleDownloadCsv = (file: UploadedData) => {
-          // Convert data to CSV format
           const headers = file.column_names;
-          const rows = file.data;
+          const escape = (value: unknown) => {
+               if (value === null || value === undefined) return "";
+               const stringValue = String(value);
+               return /[",\n]/.test(stringValue) ? `"${stringValue.replace(/"/g, '""')}"` : stringValue;
+          };
 
-          // Create CSV content
           const csvContent = [
-               headers.join(','),
-               ...rows.map((row: Record<string, unknown>) =>
-                    headers.map((header: string) => {
-                         const value = row[header];
-                         // Escape values that contain commas or quotes
-                         if (value === null || value === undefined) return '';
-                         const stringValue = String(value);
-                         if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-                              return `"${stringValue.replace(/"/g, '""')}"`;
-                         }
-                         return stringValue;
-                    }).join(',')
-               )
-          ].join('\n');
+               headers.map(escape).join(","),
+               ...file.data.map((row: Record<string, unknown>) => headers.map((h) => escape(row[h])).join(",")),
+          ].join("\n");
 
-          // Create blob and download
-          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-          const link = document.createElement('a');
+          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
           const url = URL.createObjectURL(blob);
-
-          const fileName = file.filename.replace(/\.[^/.]+$/, "") + "_export.csv";
-          link.setAttribute('href', url);
-          link.setAttribute('download', fileName);
-          link.style.visibility = 'hidden';
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = file.filename.replace(/\.[^/.]+$/, "") + "_cleaned.csv";
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
+          URL.revokeObjectURL(url);
      };
 
      return (
-          <div className="flex-1 p-3 h-full w-full">
-               <div className="h-full w-full flex flex-col">
-                    <div className="flex-shrink-0 pb-3 px-1">
-                         <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300">Files</h2>
-                    </div>
-                    <div className="flex-1 flex flex-col min-h-0 px-1">
-                         {/* Upload Button */}
-                         <div className="flex-shrink-0 mb-2">
-                              <Input
-                                   ref={fileInputRef}
-                                   type="file"
-                                   accept=".csv,.xlsx,.xls"
-                                   onChange={handleFileUpload}
-                                   className="hidden"
-                                   id="file-upload-explorer"
-                                   disabled={isLoading}
-                              />
-                              <Button
-                                   asChild
-                                   disabled={isLoading}
-                                   className="w-full bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 text-white"
-                                   size="sm"
-                              >
-                                   <label
-                                        htmlFor="file-upload-explorer"
-                                        className={`cursor-pointer ${isLoading ? 'cursor-not-allowed' : ''}`}
-                                   >
-                                        {isLoading ? 'Uploading...' : '+ Upload File'}
-                                   </label>
-                              </Button>
-                         </div>
+          <div className="flex h-full w-full flex-col">
+               <div className="flex h-10 shrink-0 items-center justify-between pl-4 pr-2">
+                    <h2 className="text-xs font-medium text-muted-foreground">Files</h2>
+                    <input
+                         ref={fileInputRef}
+                         type="file"
+                         accept=".csv,.xlsx,.xls"
+                         onChange={handleInputChange}
+                         className="hidden"
+                         disabled={isLoading}
+                    />
+                    <Button
+                         variant="ghost"
+                         size="icon-sm"
+                         onClick={() => fileInputRef.current?.click()}
+                         disabled={isLoading}
+                         aria-label="Upload file"
+                         title="Upload file"
+                         className="size-7 text-muted-foreground hover:text-foreground"
+                    >
+                         {isLoading ? <Loader2 className="animate-spin" /> : <Plus />}
+                    </Button>
+               </div>
 
-                         {/* File List */}
-                         <div className="flex-1 overflow-y-auto space-y-1">
-                              {files.length === 0 ? (
-                                   <div className="flex items-center justify-center h-full text-sm text-slate-500 dark:text-slate-400 text-center px-2">
-                                        No files uploaded yet
-                                   </div>
-                              ) : (
-                                   files.map((file, index) => (
-                                        <div
-                                             key={index}
-                                             className={`
-                    group flex items-center justify-between p-1.5 rounded-lg
-                    transition-all duration-200 text-sm
-                    ${selectedFileIndex === index
-                                                       ? 'bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 shadow-sm'
-                                                       : 'hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700'
-                                                  }
-                  `}
-                                        >
-                                             <div
-                                                  className="flex-1 min-w-0 cursor-pointer"
+               {uploadError && (
+                    <div
+                         role="alert"
+                         className="mx-2 mb-2 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-2.5 py-2 text-xs text-destructive"
+                    >
+                         <span className="flex-1 leading-snug">{uploadError}</span>
+                         <button
+                              onClick={() => setUploadError(null)}
+                              aria-label="Dismiss error"
+                              className="-m-0.5 rounded p-0.5 hover:bg-destructive/10"
+                         >
+                              <X className="size-3.5" />
+                         </button>
+                    </div>
+               )}
+
+               <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+                    {files.length === 0 ? (
+                         <div className="px-2 py-1">
+                              <p className="text-xs leading-relaxed text-muted-foreground">
+                                   {isLoading ? "Uploading…" : "Uploaded files appear here."}
+                              </p>
+                         </div>
+                    ) : (
+                         <ul className="space-y-px">
+                              {files.map((file, index) => {
+                                   const isSelected = selectedFileIndex === index;
+                                   const Icon = file.sheet_name ? Sheet : FileSpreadsheet;
+                                   return (
+                                        <li key={`${file.filename}-${index}`} className="group relative">
+                                             <button
                                                   onClick={() => onFileSelect(index)}
+                                                  aria-current={isSelected ? "true" : undefined}
+                                                  className={cn(
+                                                       "flex w-full items-start gap-2.5 rounded-md py-2 pl-2 pr-8 text-left transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                                                       isSelected
+                                                            ? "bg-selection text-selection-foreground"
+                                                            : "text-foreground hover:bg-accent"
+                                                  )}
                                              >
-                                                  <div className="truncate font-medium text-slate-700 dark:text-slate-300" title={file.filename}>
-                                                       {file.filename}
-                                                  </div>
-                                             </div>
+                                                  <Icon
+                                                       className={cn(
+                                                            "mt-0.5 size-4 shrink-0",
+                                                            isSelected ? "text-selection-foreground" : "text-muted-foreground"
+                                                       )}
+                                                  />
+                                                  <span className="min-w-0 flex-1">
+                                                       <span className="block truncate text-[13px] font-medium" title={file.filename}>
+                                                            {file.filename}
+                                                       </span>
+                                                       <span
+                                                            className={cn(
+                                                                 "tabular block truncate text-xs",
+                                                                 isSelected ? "text-selection-foreground/75" : "text-muted-foreground"
+                                                            )}
+                                                       >
+                                                            {formatCount(file.rows)} rows · {file.columns} cols
+                                                       </span>
+                                                  </span>
+                                             </button>
 
                                              <DropdownMenu>
-                                                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                                  <DropdownMenuTrigger asChild>
                                                        <button
-                                                            className="ml-2 p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-200 dark:hover:bg-slate-700 rounded"
-                                                            title="More options"
+                                                            className="absolute right-1 top-1.5 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-background/60 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+                                                            aria-label={`Options for ${file.filename}`}
                                                        >
-                                                            <MoreVertical className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                                                            <MoreHorizontal className="size-4" />
                                                        </button>
                                                   </DropdownMenuTrigger>
-                                                  <DropdownMenuContent align="end" className="w-40">
-                                                       <DropdownMenuItem
-                                                            onClick={(e) => {
-                                                                 e.stopPropagation();
-                                                                 handleStartRename(index, file.filename);
-                                                            }}
-                                                            className="cursor-pointer"
-                                                       >
-                                                            <FileEdit className="w-4 h-4 mr-2" />
+                                                  <DropdownMenuContent align="start" className="w-44">
+                                                       <DropdownMenuItem onClick={() => handleStartRename(index, file.filename)}>
+                                                            <Pencil />
                                                             Rename
                                                        </DropdownMenuItem>
-                                                       <DropdownMenuItem
-                                                            onClick={(e) => {
-                                                                 e.stopPropagation();
-                                                                 handleDownloadCsv(file);
-                                                            }}
-                                                            className="cursor-pointer"
-                                                       >
-                                                            <Download className="w-4 h-4 mr-2" />
+                                                       <DropdownMenuItem onClick={() => handleDownloadCsv(file)}>
+                                                            <Download />
                                                             Download CSV
                                                        </DropdownMenuItem>
+                                                       <DropdownMenuSeparator />
                                                        <DropdownMenuItem
-                                                            onClick={(e) => {
-                                                                 e.stopPropagation();
-                                                                 handleStartDelete(index);
+                                                            variant="destructive"
+                                                            onClick={() => {
+                                                                 setDeletingIndex(index);
+                                                                 setShowDeleteDialog(true);
                                                             }}
-                                                            className="cursor-pointer text-red-600 focus:text-red-600"
                                                        >
-                                                            <Trash2 className="w-4 h-4 mr-2" />
-                                                            Delete
+                                                            <Trash2 />
+                                                            Remove
                                                        </DropdownMenuItem>
                                                   </DropdownMenuContent>
                                              </DropdownMenu>
-                                        </div>
-                                   ))
-                              )}
-                         </div>
-                    </div>
+                                        </li>
+                                   );
+                              })}
+                         </ul>
+                    )}
                </div>
 
                {/* Duplicate File Dialog */}
-               <Dialog open={showDuplicateDialog} onOpenChange={(open) => !open && handleCancelUpload()}>
-                    <DialogContent className="max-w-md">
+               <Dialog open={showDuplicateDialog} onOpenChange={(open) => !open && closeDuplicateDialog()}>
+                    <DialogContent className="sm:max-w-md">
                          <DialogHeader>
-                              <DialogTitle>File Already Exists</DialogTitle>
+                              <DialogTitle>A file with this name exists</DialogTitle>
                               <DialogDescription>
-                                   A file named <span className="font-medium text-gray-900">{pendingUploadData?.filename}</span> already exists. What would you like to do?
+                                   <span className="font-medium text-foreground">{pendingUploadData?.filename}</span> is already
+                                   open. Replace it, or keep both under a new name.
                               </DialogDescription>
                          </DialogHeader>
 
-                         <div className="space-y-4">
-                              {/* Replace Option */}
-                              <div className="border rounded-lg p-3">
-                                   <div className="flex items-center justify-between mb-2">
-                                        <span className="font-medium text-sm">Replace existing file</span>
-                                   </div>
-                                   <p className="text-xs text-gray-500 mb-3">
-                                        This will overwrite the existing file with the new one.
-                                   </p>
-                                   <Button
-                                        onClick={handleReplace}
-                                        variant="destructive"
-                                        size="sm"
-                                        className="w-full"
-                                   >
-                                        Replace
-                                   </Button>
-                              </div>
+                         <div className="space-y-2">
+                              <label htmlFor="duplicate-name" className="text-xs font-medium text-muted-foreground">
+                                   New file name
+                              </label>
+                              <Input
+                                   id="duplicate-name"
+                                   value={newFileName}
+                                   onChange={(e) => setNewFileName(e.target.value)}
+                                   onKeyDown={(e) => e.key === "Enter" && newFileName.trim() && handleKeepBoth()}
+                              />
+                         </div>
 
-                              {/* Rename Option */}
-                              <div className="border rounded-lg p-3">
-                                   <div className="flex items-center justify-between mb-2">
-                                        <span className="font-medium text-sm">Keep both files</span>
-                                   </div>
-                                   <p className="text-xs text-gray-500 mb-2">
-                                        Rename the new file to keep both versions.
-                                   </p>
-                                   <Input
-                                        value={newFileName}
-                                        onChange={(e) => setNewFileName(e.target.value)}
-                                        placeholder="Enter new filename"
-                                        className="mb-2 text-sm"
-                                        onKeyPress={(e) => e.key === 'Enter' && newFileName.trim() && handleRename()}
-                                   />
-                                   <Button
-                                        onClick={handleRename}
-                                        variant="default"
-                                        size="sm"
-                                        className="w-full"
-                                        disabled={!newFileName.trim()}
-                                   >
-                                        Rename and Upload
-                                   </Button>
-                              </div>
-
-                              {/* Cancel Button */}
-                              <Button
-                                   onClick={handleCancelUpload}
-                                   variant="outline"
-                                   size="sm"
-                                   className="w-full"
-                              >
+                         <DialogFooter>
+                              <Button variant="ghost" onClick={closeDuplicateDialog}>
                                    Cancel
                               </Button>
-                         </div>
+                              <Button variant="outline" onClick={handleReplace}>
+                                   Replace existing
+                              </Button>
+                              <Button onClick={handleKeepBoth} disabled={!newFileName.trim()}>
+                                   Keep both
+                              </Button>
+                         </DialogFooter>
                     </DialogContent>
                </Dialog>
 
                {/* Rename File Dialog */}
-               <Dialog open={showRenameDialog} onOpenChange={(open) => !open && handleCancelRename()}>
-                    <DialogContent className="max-w-md">
+               <Dialog open={showRenameDialog} onOpenChange={(open) => !open && closeRenameDialog()}>
+                    <DialogContent className="sm:max-w-md">
                          <DialogHeader>
-                              <DialogTitle>Rename File</DialogTitle>
-                              <DialogDescription>
-                                   Enter a new name for the file.
-                              </DialogDescription>
+                              <DialogTitle>Rename file</DialogTitle>
+                              <DialogDescription>This only changes the name shown in Jade.</DialogDescription>
                          </DialogHeader>
-
-                         <div className="space-y-4">
-                              <Input
-                                   value={renameValue}
-                                   onChange={(e) => setRenameValue(e.target.value)}
-                                   placeholder="Enter new filename"
-                                   className="text-sm"
-                                   onKeyPress={(e) => e.key === 'Enter' && renameValue.trim() && handleConfirmRename()}
-                                   autoFocus
-                              />
-
-                              <div className="flex gap-2 justify-end">
-                                   <Button
-                                        onClick={handleCancelRename}
-                                        variant="outline"
-                                        size="sm"
-                                   >
-                                        Cancel
-                                   </Button>
-                                   <Button
-                                        onClick={handleConfirmRename}
-                                        variant="default"
-                                        size="sm"
-                                        disabled={!renameValue.trim()}
-                                   >
-                                        Rename
-                                   </Button>
-                              </div>
-                         </div>
+                         <Input
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && renameValue.trim() && handleConfirmRename()}
+                              aria-label="File name"
+                              autoFocus
+                         />
+                         <DialogFooter>
+                              <Button variant="ghost" onClick={closeRenameDialog}>
+                                   Cancel
+                              </Button>
+                              <Button onClick={handleConfirmRename} disabled={!renameValue.trim()}>
+                                   Rename
+                              </Button>
+                         </DialogFooter>
                     </DialogContent>
                </Dialog>
 
-               {/* Delete Confirmation Dialog */}
+               {/* Remove Confirmation Dialog */}
                <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                     <AlertDialogContent>
                          <AlertDialogHeader>
-                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogTitle>Remove this file?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                   This will permanently delete <span className="font-medium text-gray-900">{deletingIndex !== -1 ? files[deletingIndex]?.filename : ''}</span>. This action cannot be undone.
+                                   <span className="font-medium text-foreground">
+                                        {deletingIndex !== -1 ? files[deletingIndex]?.filename : ""}
+                                   </span>{" "}
+                                   and any changes made to it will be removed from this session.
                               </AlertDialogDescription>
                          </AlertDialogHeader>
                          <AlertDialogFooter>
-                              <AlertDialogCancel onClick={handleCancelDelete}>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
-                                   Delete
+                              <AlertDialogCancel onClick={() => setDeletingIndex(-1)}>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                   onClick={handleConfirmDelete}
+                                   className="bg-destructive text-white hover:bg-destructive/90"
+                              >
+                                   Remove
                               </AlertDialogAction>
                          </AlertDialogFooter>
                     </AlertDialogContent>
                </AlertDialog>
           </div>
      );
-}
+});
 
+export default FileExplorer;

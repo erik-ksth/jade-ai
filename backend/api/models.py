@@ -22,11 +22,6 @@ class SwitchSheetRequest(BaseModel):
     sheet_name: str
 
 
-class PandasCodeRequest(BaseModel):
-    """Pandas code execution request model"""
-    code: str
-
-
 # Response Models
 class ChartData(BaseModel):
     """Chart data model"""

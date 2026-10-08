@@ -10,8 +10,24 @@ from workflows.orchestrator import workflow_graph
 from workflows.state import WorkflowState
 import json
 import asyncio
+import pandas as pd
 
 router = APIRouter(tags=["chat"])
+
+
+def dataframe_fingerprint(df):
+    """Value-based fingerprint used to tell whether code actually changed the data"""
+    if df is None:
+        return None
+    try:
+        return (df.shape, tuple(map(str, df.columns)), int(pd.util.hash_pandas_object(df, index=True).sum()))
+    except Exception:
+        return None  # unhashable cell values; treat the data as changed
+
+
+def data_changed(before, df) -> bool:
+    after = dataframe_fingerprint(df)
+    return before is None or after is None or before != after
 
 
 @router.post("/chat/stream")
@@ -30,6 +46,8 @@ async def chat_stream(request: ChatRequest):
                 # Put chunk in queue (this is called from sync context in thread)
                 asyncio.run_coroutine_threadsafe(chunk_queue.put(chunk), loop)
             
+            fingerprint_before = dataframe_fingerprint(df_state.current_dataframe)
+
             # Prepare initial state with streaming callback
             initial_state: WorkflowState = {
                 "user_message": request.message,
@@ -106,9 +124,9 @@ async def chat_stream(request: ChatRequest):
                 "error": final_state.get("execution_error")
             }
             
-            # If code was executed successfully, include updated data
+            # Only send data back when the executed code changed it
             if final_state.get("execution_success") and final_state.get("pandas_code"):
-                if df_state.has_data() and df_state.current_dataframe is not None:
+                if df_state.has_data() and data_changed(fingerprint_before, df_state.current_dataframe):
                     completion_data["data_updated"] = True
                     completion_data["updated_data"] = dataframe_to_json_safe(df_state.current_dataframe)
             
@@ -143,6 +161,8 @@ async def chat(request: ChatRequest):
     """Main chat endpoint using LangGraph workflow orchestration"""
     
     try:
+        fingerprint_before = dataframe_fingerprint(df_state.current_dataframe)
+
         # Prepare initial state for workflow
         initial_state: WorkflowState = {
             "user_message": request.message,
@@ -189,9 +209,9 @@ async def chat(request: ChatRequest):
             "chart_data": None
         }
         
-        # If code was executed successfully, return updated data
+        # Only return data when the executed code changed it
         if final_state.get("execution_success") and final_state.get("pandas_code"):
-            if df_state.has_data() and df_state.current_dataframe is not None:
+            if df_state.has_data() and data_changed(fingerprint_before, df_state.current_dataframe):
                 response_data["data_updated"] = True
                 response_data["updated_data"] = dataframe_to_json_safe(df_state.current_dataframe)
         

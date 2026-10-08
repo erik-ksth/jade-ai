@@ -7,10 +7,12 @@ export interface UploadedData {
   preview: Record<string, unknown>[];
   data: Record<string, unknown>[];
   sheet_name?: string; // Optional: which sheet this data represents
+  dataset_key?: string; // Backend key for this file/sheet; used to make it the active dataset
   original_filename?: string; // Optional: the original file name before adding sheet suffix
 }
 
 export interface ChartData {
+  id?: string;
   type:
     | "line"
     | "bar"

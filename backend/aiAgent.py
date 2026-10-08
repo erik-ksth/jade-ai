@@ -4,6 +4,12 @@ from typing import Dict, Any, Optional, List
 import pandas as pd
 from groq import Groq
 
+# Text values that mean "no data" even though pandas reads them as strings
+PLACEHOLDER_TOKENS = {
+    "error", "unknown", "n/a", "na", "nan", "null", "none", "-", "?",
+    "#n/a", "#value!", "#ref!", "#div/0!",
+}
+
 class AIAgent:
     def __init__(self):
         self.client = Groq(
@@ -49,30 +55,30 @@ class AIAgent:
 
 ### Generate EXECUTABLE Code (without # EXAMPLE ONLY marker):
 **ONLY when the user gives a DIRECT COMMAND to modify or visualize data:**
-- ✅ "Remove rows with missing values" → Executable code
-- ✅ "Create a chart showing sales by category" → Executable code
-- ✅ "Filter rows where price > 100" → Executable code
-- ✅ "Delete the first row" → Executable code
-- ✅ "Fill nulls with zero" → Executable code
-- ✅ "Clean this data" (direct command) → Executable code
+- "Remove rows with missing values" → Executable code
+- "Create a chart showing sales by category" → Executable code
+- "Filter rows where price > 100" → Executable code
+- "Delete the first row" → Executable code
+- "Fill nulls with zero" → Executable code
+- "Clean this data" (direct command) → Executable code
 
 ### Generate EXAMPLE ONLY Code (with # EXAMPLE ONLY marker on first line):
 **When user asks HOW to do something or wants OPTIONS/RECOMMENDATIONS:**
-- ✅ "How should I clean this data?" → EXAMPLE ONLY code showing options
-- ✅ "What can I do to improve data quality?" → EXAMPLE ONLY code with suggestions
-- ✅ "How do I handle missing values?" → EXAMPLE ONLY code showing approaches
-- ✅ "What are my options for...?" → EXAMPLE ONLY code
-- ✅ "Show me ways to..." → EXAMPLE ONLY code
-- ✅ "How can I...?" → EXAMPLE ONLY code
+- "How should I clean this data?" → EXAMPLE ONLY code showing options
+- "What can I do to improve data quality?" → EXAMPLE ONLY code with suggestions
+- "How do I handle missing values?" → EXAMPLE ONLY code showing approaches
+- "What are my options for...?" → EXAMPLE ONLY code
+- "Show me ways to..." → EXAMPLE ONLY code
+- "How can I...?" → EXAMPLE ONLY code
 
 ### NO Code at All (just text answer):
 **For informational questions about existing data:**
-- ✅ "What columns are in this dataset?" → Just list the columns
-- ✅ "How many rows does this have?" → Just state the number
-- ✅ "What does this data look like?" → Describe it conversationally
-- ✅ "Show me a summary of this dataset" → Provide a text summary
-- ✅ "What are the data types?" → List them in a table
-- ✅ "Explain what this dataset contains" → Describe it naturally
+- "What columns are in this dataset?" → Just list the columns
+- "How many rows does this have?" → Just state the number
+- "What does this data look like?" → Describe it conversationally
+- "Show me a summary of this dataset" → Provide a text summary
+- "What are the data types?" → List them in a table
+- "Explain what this dataset contains" → Describe it naturally
 
 **Key principle**: 
 - DIRECT COMMAND ("do X", "remove Y", "create Z") = EXECUTABLE code
@@ -139,49 +145,33 @@ df.fillna(0, inplace=True)  # Option 2
 
 ## Response Structure (IMPORTANT - Follow This Format):
 
-**For ALL data manipulation requests, structure your response EXACTLY like this:**
+Write like a concise, senior data analyst. No emoji. No status headings such as "Analyzing" or "Executing".
 
-🤔 **Analyzing your request...**
+**For data manipulation and chart requests:**
+1. One or two plain sentences saying what you will do and why.
+2. The executable code block.
 
-[Brief 1-2 sentence explanation of what you understand the user wants]
-
-⚙️ **Executing...**
-
-```python
-# Your pandas code here with comments
-df.operation(inplace=True)
-print(f"Result: {df.shape}")
-```
-
-✅ **Done!** [Brief summary of what was accomplished]
-
-• Key metric or change 1
-• Key metric or change 2
-• Key metric or change 3
+Stop after the code block. Do NOT write a results summary: you have not seen the output yet. The printed output is summarized separately after the code runs, so **print the key facts** (rows before/after, values changed, nulls remaining). Never invent numbers and never use placeholders like "X rows".
 
 **Example:**
 
 User: "remove the first row"
 
 Your response:
-🤔 **Analyzing your request...**
-
-I need to remove the first row from your dataset.
-
-⚙️ **Executing...**
+I'll drop the first row and confirm the new row count.
 
 ```python
-# Drop the first row (index 0)
+rows_before = len(df)
 df.drop(df.index[0], inplace=True)
-print(f"New shape: {df.shape}")
-print(f"First row is now: {df.iloc[0].to_dict()}")
+print(f"Rows: {rows_before} -> {len(df)}")
+print(f"New first row: {df.iloc[0].to_dict()}")
 ```
 
-✅ **Done!** I removed the first row from your dataset.
-
-• Dataset: 8,158 → 8,157 rows
-• First row is now: TXN_3977031 (Cake purchase)
-• All data has been preserved except the removed row
+## Data Cleaning Rules:
+- Treat placeholder strings as missing values: "ERROR", "UNKNOWN", "N/A", "NA", "NaN", "null", "None", "-", "?" and empty strings. Replace them first, e.g. `df.replace(["ERROR", "UNKNOWN"], pd.NA, inplace=True)`.
+- Convert numeric-looking text columns with `df[col] = pd.to_numeric(df[col], errors="coerce")`.
+- When a missing value can be derived from other columns (for example total = quantity x unit price), fill it instead of dropping the row.
+- Only drop rows that cannot be repaired, and print how many were dropped and why.
 
 ## Available Variables:
 - `df`: the current dataframe
@@ -438,6 +428,31 @@ This keeps only the first occurrence of each unique row combination."
             else:
                 quality_factors.append(100)
             
+            # 1b. Placeholder values (HIGH priority): strings like "ERROR" or "UNKNOWN"
+            # that pandas keeps as text but that carry no real value
+            placeholder_count = 0
+            placeholder_columns = []
+            for col in df.columns:
+                if not (pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_string_dtype(df[col])):
+                    continue
+                values = df[col].dropna().astype(str).str.strip().str.lower()
+                col_count = int(values.isin(PLACEHOLDER_TOKENS).sum())
+                if col_count:
+                    placeholder_count += col_count
+                    placeholder_columns.append(col)
+
+            if placeholder_count:
+                placeholder_percentage = placeholder_count / total_cells * 100 if total_cells else 0
+                issues["high"].append({
+                    "type": "placeholder_values",
+                    "description": f"{placeholder_count} placeholder values such as ERROR or UNKNOWN",
+                    "count": placeholder_count,
+                    "affected_columns": placeholder_columns
+                })
+                quality_factors.append(max(0, 100 - placeholder_percentage * 2))
+            else:
+                quality_factors.append(100)
+
             # 2. Duplicate Rows (MEDIUM priority if >5%)
             duplicate_count = int(df.duplicated().sum())
             duplicate_percentage = (duplicate_count / len(df) * 100) if len(df) > 0 else 0
@@ -474,7 +489,7 @@ This keeps only the first occurrence of each unique row combination."
             # 4. Data Type Issues (MEDIUM priority)
             type_issues = []
             for col in df.columns:
-                if df[col].dtype == 'object':
+                if pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_string_dtype(df[col]):
                     non_null = df[col].dropna()
                     if len(non_null) > 0:
                         try:

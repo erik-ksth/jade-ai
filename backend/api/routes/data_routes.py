@@ -1,10 +1,9 @@
 """Data management routes (sheets, undo, execute)"""
 
 from fastapi import APIRouter, HTTPException
-from api.models import SwitchSheetRequest, PandasCodeRequest
+from api.models import SwitchSheetRequest
 from api.utils import dataframe_to_json_safe
 from core.state import df_state
-import pandas as pd
 
 router = APIRouter(tags=["data"])
 
@@ -50,32 +49,6 @@ async def switch_sheet(request: SwitchSheetRequest):
         "rows": json_safe_data["rows"],
         "dtypes": json_safe_data["dtypes"]
     }
-
-
-@router.post("/execute-pandas")
-async def execute_pandas_code(request: PandasCodeRequest):
-    """Execute pandas code directly (legacy endpoint)"""
-    
-    if not df_state.has_data():
-        return {"error": "No dataset loaded"}
-    
-    try:
-        # Execute code with proper context
-        exec_context = {'pd': pd, 'df': df_state.current_dataframe}
-        exec(request.code, exec_context, exec_context)
-        
-        # Return updated data
-        json_safe_data = dataframe_to_json_safe(df_state.current_dataframe)
-        
-        return {
-            "success": True,
-            "data": json_safe_data["data"],
-            "columns": json_safe_data["columns"],
-            "rows": json_safe_data["rows"]
-        }
-        
-    except Exception as e:
-        return {"error": str(e)}
 
 
 @router.post("/clear")

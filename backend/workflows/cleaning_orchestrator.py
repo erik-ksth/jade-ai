@@ -7,6 +7,28 @@ from langgraph.graph import StateGraph, END
 from typing import Dict, Any, Literal
 from .state import WorkflowState
 from .nodes import quality_assessor, generate_code_node, execute_code_node
+from core.state import df_state
+
+
+def emit(state: WorkflowState, text: str) -> str:
+    """Stream text to the client (when streaming) and return the accumulated response"""
+    stream_callback = state.get("stream_callback")
+    if stream_callback:
+        stream_callback(text)
+    return state.get("ai_response", "") + text
+
+
+def describe_issue(issue: Dict[str, Any]) -> str:
+    columns = issue.get("affected_columns") or []
+    if columns:
+        return f"{issue['description']} (columns: {', '.join(map(str, columns))})"
+    return issue["description"]
+
+
+def issues_signature(quality: Dict[str, Any]) -> list:
+    """Comparable summary of the high/medium issues, used to detect a pass that changed nothing"""
+    issues = quality.get("issues", {})
+    return sorted(issue["description"] for issue in issues.get("high", []) + issues.get("medium", []))
 
 
 def should_continue_cleaning(state: WorkflowState) -> Literal["assess_quality", "generate_summary"]:
@@ -25,6 +47,11 @@ def should_continue_cleaning(state: WorkflowState) -> Literal["assess_quality", 
     if iteration >= max_iterations:
         return "generate_summary"
     
+    # Stop when the last pass made no progress on the issues it targeted
+    history = state.get("cleaning_history", [])
+    if history and history[-1].get("issues_signature") == issues_signature(quality):
+        return "generate_summary"
+
     # Check if there are still issues to fix
     if quality.get("has_issues", False):
         issues = quality.get("issues", {})
@@ -55,48 +82,46 @@ def generate_batch_fix_code(state: WorkflowState) -> WorkflowState:
         priority = "low"
         issues_to_fix = issues.get("low", [])
     
-    # Build iteration header
-    issues_description = "\n".join([
-        f"  • {issue['description']}"
-        for issue in issues_to_fix
-    ])
-    
-    iteration_header = f"""🔍 **Iteration {iteration + 1}: Assessing quality...**
+    plural = "s" if len(issues_to_fix) != 1 else ""
+    issue_lines = "\n".join(f"- {describe_issue(issue)}" for issue in issues_to_fix)
+    iteration_header = (
+        f"{'' if iteration == 0 else chr(10)}**Pass {iteration + 1}: {len(issues_to_fix)} "
+        f"{priority}-priority issue{plural}**\n\n{issue_lines}\n\n"
+    )
 
-Found {len(issues_to_fix)} {priority}-priority issue{'s' if len(issues_to_fix) != 1 else ''}:
-
-{issues_description}
-
-⚙️ **Fixing {priority}-priority issues...**
-
-"""
-    
     # Build prompt for code generation
-    prompt = f"""Generate Python code to fix these {priority}-priority issues:
+    prompt = f"""Generate Python code to fix these {priority}-priority data quality issues:
 
-{chr(10).join([f"- {issue['type']}: {issue['description']}" for issue in issues_to_fix])}
+{issue_lines}
 
-Use in-place operations and include print statements showing what was fixed.
+Strategy (keep as many rows as possible):
+- Replace placeholder values (ERROR, UNKNOWN, etc.) with pd.NA first.
+- Convert numeric-looking columns with pd.to_numeric(errors="coerce") before any arithmetic.
+- Recover missing numbers from related columns when a relationship exists
+  (e.g. total = quantity x unit price; solve for whichever one is missing).
+- Fill missing categorical values with the label "Not recorded" instead of dropping the row.
+- Drop a row only when it lacks a value that cannot be recovered and matters for analysis
+  (an item name, a date, or a number that cannot be derived), and print how many rows were dropped.
 
-Respond with ONLY the code block:
+Use in-place operations. Print what was fixed with before/after counts.
 
-```python
-# Your batch fix code here
-```"""
-    
+Respond with one short sentence followed by the code block."""
+
+    # Stream the header before the model starts writing code
+    state = {**state, "ai_response": emit(state, iteration_header)}
+
     # Update state with the prompt
     updated_state = {
         **state,
         "user_message": prompt,
+        "df_info": df_state.get_info(),  # reflect fixes from earlier passes
         "cleaning_iteration": iteration + 1
     }
     
     # Generate code using the existing code generator
     result = generate_code_node(updated_state)
     
-    # Prepend iteration header to AI response
-    current_response = state.get("ai_response", "")
-    result["ai_response"] = current_response + iteration_header + result.get("ai_response", "")
+    result["ai_response"] = state.get("ai_response", "") + result.get("ai_response", "")
     
     # Track what we're fixing in this iteration
     cleaning_history = state.get("cleaning_history", [])
@@ -105,7 +130,8 @@ Respond with ONLY the code block:
         "priority": priority,
         "issues_fixed": [issue["type"] for issue in issues_to_fix],
         "code": result.get("pandas_code", ""),
-        "response": iteration_header
+        "response": iteration_header,
+        "issues_signature": issues_signature(quality),
     })
     
     return {
@@ -115,23 +141,16 @@ Respond with ONLY the code block:
 
 
 def assess_quality_node(state: WorkflowState) -> WorkflowState:
-    """Assess data quality and add success message if coming from execution"""
-    result = quality_assessor.assess(state)
-    
-    # If we just executed code, add a success message
-    if state.get("execution_success") and state.get("cleaning_iteration", 0) > 0:
-        print_output = state.get("print_output", "")
-        success_msg = f"\n✅ **Fixed!** Issues resolved successfully.\n\n"
-        
-        # Add print output if available
-        if print_output:
-            success_msg += f"```\n{print_output}\n```\n\n"
-        
-        # Append to response
-        current_response = result.get("ai_response", "")
-        result["ai_response"] = current_response + success_msg
-    
-    return result
+    """Report the previous pass (if any), then re-assess data quality"""
+    if state.get("cleaning_iteration", 0) > 0:
+        if state.get("execution_success"):
+            print_output = (state.get("print_output") or "").strip()
+            report = f"\n```text\n{print_output}\n```\n" if print_output else ""
+        else:
+            report = f"\nThis pass failed: `{state.get('execution_error', 'unknown error')}`. Trying again.\n"
+        state = {**state, "ai_response": emit(state, report)}
+
+    return quality_assessor.assess(state)
 
 
 def generate_cleaning_summary(state: WorkflowState) -> WorkflowState:
@@ -142,37 +161,32 @@ def generate_cleaning_summary(state: WorkflowState) -> WorkflowState:
     cleaning_history = state.get("cleaning_history", [])
     iteration = state.get("cleaning_iteration", 0)
     
-    # Get current accumulated response
-    current_response = state.get("ai_response", "")
-    
-    # Build final summary
-    summary_parts = [
-        f"\n---\n\n",
-        f"🎉 **All Done! Data Cleaning Complete!**\n\n",
-        f"Completed {iteration} cleaning iteration{'s' if iteration != 1 else ''}.\n\n"
-    ]
-    
-    # Add final quality metrics
-    summary_parts.append(f"**Final Data Quality:**\n\n")
-    summary_parts.append(f"• Quality Score: {quality.get('quality_score', 0)}/100\n")
-    summary_parts.append(f"• Total Rows: {quality.get('total_rows', 0):,}\n")
-    summary_parts.append(f"• Total Columns: {quality.get('total_columns', 0)}\n")
-    
-    # Check for remaining issues
     issues = quality.get("issues", {})
     remaining = len(issues.get("high", [])) + len(issues.get("medium", [])) + len(issues.get("low", []))
-    
-    if remaining == 0:
-        summary_parts.append("\n✨ Your data is now clean with no remaining issues!")
+    rows = quality.get("total_rows", 0)
+    columns = quality.get("total_columns", 0)
+    score = quality.get("quality_score", 0)
+
+    if iteration == 0 and remaining == 0:
+        summary = f"No data quality issues found. The dataset has {rows:,} rows and {columns} columns."
     else:
-        summary_parts.append(f"\n⚠️ {remaining} low-priority issue{'s' if remaining != 1 else ''} remaining (can be addressed later)")
-    
-    summary = "".join(summary_parts)
-    
+        passes = f"{iteration} pass{'es' if iteration != 1 else ''}"
+        summary = (
+            f"\n**Cleaning complete** after {passes}. "
+            f"The dataset now has {rows:,} rows and {columns} columns, with a quality score of {score:g}/100."
+        )
+        if remaining:
+            summary += (
+                f" {remaining} minor issue{'s' if remaining != 1 else ''} remain"
+                f"{'s' if remaining == 1 else ''}; ask me to address {'it' if remaining == 1 else 'them'} if needed."
+            )
+
     return {
         **state,
-        "ai_response": current_response + summary,
-        "execution_success": True
+        "ai_response": emit(state, summary),
+        "execution_success": True,
+        # Failed passes are reported inline; don't surface a stale error at the end
+        "execution_error": None,
     }
 
 

@@ -1,15 +1,22 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Send, Copy, Check, Sparkles, ChevronDown, ChevronUp, BrushCleaning } from "lucide-react";
+import {
+     ArrowUp,
+     AlertCircle,
+     BarChart3,
+     CheckCircle2,
+     FileSpreadsheet,
+     ListChecks,
+     SquarePen,
+     Wand2,
+} from "lucide-react";
 import { ChatMessage, UploadedData } from "../../../shared/types";
-import ReactMarkdown from "react-markdown";
-import { Components } from "react-markdown";
+import ReactMarkdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import CodeBlock from "@/components/CodeBlock";
+import { cn } from "@/lib/utils";
 
 interface ChatAgentProps {
      messages: ChatMessage[];
@@ -17,351 +24,295 @@ interface ChatAgentProps {
      uploadedData: UploadedData | null;
      isLoading: boolean;
      onClearConversation?: () => void;
+     onOpenDashboard?: () => void;
 }
 
-export default function ChatAgent({ messages, onSendMessage, uploadedData, isLoading, onClearConversation }: ChatAgentProps) {
+const SUGGESTIONS = [
+     { icon: ListChecks, label: "Summarize this dataset" },
+     { icon: Wand2, label: "Clean up missing and invalid values" },
+     { icon: BarChart3, label: "Chart the most common values" },
+];
+
+const markdownComponents: Components = {
+     code: ({ children, className }) => {
+          const match = /language-(\w+)/.exec(className || "");
+          const codeString = String(children).replace(/\n$/, "");
+          const isBlock = Boolean(match) || codeString.includes("\n");
+
+          if (!isBlock) {
+               return (
+                    <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.8125rem] text-foreground">
+                         {children}
+                    </code>
+               );
+          }
+          return <CodeBlock code={codeString} language={match ? match[1] : "python"} />;
+     },
+     pre: ({ children }) => <>{children}</>,
+     p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+     strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+     ul: ({ children }) => <ul className="mb-3 ml-4 list-disc space-y-1 marker:text-muted-foreground">{children}</ul>,
+     ol: ({ children }) => <ol className="mb-3 ml-4 list-decimal space-y-1 marker:text-muted-foreground">{children}</ol>,
+     li: ({ children }) => <li className="pl-1">{children}</li>,
+     h1: ({ children }) => <h3 className="mb-2 mt-4 text-sm font-semibold first:mt-0">{children}</h3>,
+     h2: ({ children }) => <h3 className="mb-2 mt-4 text-sm font-semibold first:mt-0">{children}</h3>,
+     h3: ({ children }) => <h3 className="mb-2 mt-3 text-sm font-semibold first:mt-0">{children}</h3>,
+     table: ({ children }) => (
+          <div className="my-3 overflow-x-auto rounded-lg border">
+               <table className="min-w-full text-xs">{children}</table>
+          </div>
+     ),
+     thead: ({ children }) => <thead className="bg-muted">{children}</thead>,
+     tr: ({ children }) => <tr className="border-b last:border-0">{children}</tr>,
+     th: ({ children }) => <th className="px-3 py-2 text-left font-medium text-muted-foreground">{children}</th>,
+     td: ({ children }) => <td className="tabular px-3 py-2">{children}</td>,
+     blockquote: ({ children }) => (
+          <blockquote className="my-3 rounded-md bg-muted px-3 py-2 text-muted-foreground">{children}</blockquote>
+     ),
+     hr: () => <hr className="my-4" />,
+     a: ({ children, href }) => (
+          <a href={href} target="_blank" rel="noreferrer" className="font-medium text-primary underline underline-offset-2">
+               {children}
+          </a>
+     ),
+};
+
+function TypingIndicator() {
+     return (
+          <div className="flex items-center gap-2 py-1 text-sm text-muted-foreground" role="status">
+               <span className="flex gap-1" aria-hidden>
+                    <span className="typing-dot size-1.5 rounded-full bg-current" />
+                    <span className="typing-dot size-1.5 rounded-full bg-current [animation-delay:150ms]" />
+                    <span className="typing-dot size-1.5 rounded-full bg-current [animation-delay:300ms]" />
+               </span>
+               Thinking
+          </div>
+     );
+}
+
+export default function ChatAgent({
+     messages,
+     onSendMessage,
+     uploadedData,
+     isLoading,
+     onClearConversation,
+     onOpenDashboard,
+}: ChatAgentProps) {
      const [newMessage, setNewMessage] = useState("");
-     const [copiedCode, setCopiedCode] = useState<number | null>(null);
      const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
      const messagesEndRef = useRef<HTMLDivElement>(null);
-     const inputRef = useRef<HTMLInputElement>(null);
+     const inputRef = useRef<HTMLTextAreaElement>(null);
      const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-     // Detect user scrolling and disable auto-scroll
+     // Pause auto-scroll while the user reads earlier messages
      useEffect(() => {
           const container = messagesContainerRef.current;
           if (!container) return;
 
           const handleScroll = () => {
-               // Check if user is at the bottom (within 10px threshold)
-               const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 10;
-
-               // If user scrolls away from bottom, disable auto-scroll
-               // If user scrolls back to bottom, re-enable it
+               const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 24;
                setAutoScrollEnabled(isAtBottom);
           };
 
-          container.addEventListener('scroll', handleScroll);
-          return () => container.removeEventListener('scroll', handleScroll);
+          container.addEventListener("scroll", handleScroll);
+          return () => container.removeEventListener("scroll", handleScroll);
      }, []);
 
-     // Smooth auto-scroll that only works when enabled
      useEffect(() => {
           if (!autoScrollEnabled) return;
-
-          // Use requestAnimationFrame for smoother scrolling during streaming
           requestAnimationFrame(() => {
-               messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+               messagesEndRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
           });
      }, [messages, autoScrollEnabled]);
 
-     // Auto-focus input when data is uploaded
      useEffect(() => {
-          if (uploadedData && !isLoading) {
-               inputRef.current?.focus();
-          }
+          if (uploadedData && !isLoading) inputRef.current?.focus();
      }, [uploadedData, isLoading]);
 
-     // Auto-focus input when loading completes
-     useEffect(() => {
-          if (!isLoading && uploadedData) {
-               inputRef.current?.focus();
-          }
-     }, [isLoading, uploadedData]);
+     // Grow the composer with its content, up to a cap
+     useLayoutEffect(() => {
+          const el = inputRef.current;
+          // Skip while hidden (e.g. inactive mobile view): scrollHeight is 0 there
+          if (!el || el.offsetParent === null) return;
+          el.style.height = "auto";
+          el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+     }, [newMessage]);
 
-     // Copy code to clipboard
-     const copyCode = (code: string, index: number) => {
-          navigator.clipboard.writeText(code);
-          setCopiedCode(index);
-          setTimeout(() => setCopiedCode(null), 2000);
-     };
-
-     // Custom components for markdown rendering - accepts isUserMessage to conditionally style
-     const getMarkdownComponents = (isUserMessage: boolean): Components => ({
-          code: (props) => {
-               // eslint-disable-next-line @typescript-eslint/no-unused-vars
-               const { children, className, ref, ...rest } = props;
-               const match = /language-(\w+)/.exec(className || '');
-               const isInline = !match;
-               const codeString = String(children).replace(/\n$/, '');
-               const codeIndex = Math.floor(Math.random() * 1000000); // Unique ID for copy button
-
-               if (isInline) {
-                    return (
-                         <code className="bg-slate-100 dark:bg-slate-800 text-rose-600 dark:text-rose-400 px-1.5 py-0.5 rounded text-sm font-mono border border-slate-200 dark:border-slate-700">
-                              {children}
-                         </code>
-                    );
-               }
-
-               return (
-                    <details className="group my-4" open>
-                         <summary className="cursor-pointer list-none">
-                              <div className="relative">
-                                   <div className="absolute right-2 top-2 z-10 flex gap-2">
-                                        <button
-                                             onClick={(e) => {
-                                                  e.preventDefault();
-                                                  const details = e.currentTarget.closest('details');
-                                                  if (details) details.open = !details.open;
-                                             }}
-                                             className="opacity-0 group-hover:opacity-100 transition-opacity bg-slate-700 dark:bg-slate-600 hover:bg-slate-600 dark:hover:bg-slate-500 text-white px-3 py-1.5 rounded text-xs flex items-center gap-1.5 shadow-lg"
-                                        >
-                                             <span className="group-open:hidden flex items-center gap-1.5">
-                                                  <ChevronDown className="h-3 w-3" />
-                                                  <span>Expand</span>
-                                             </span>
-                                             <span className="hidden group-open:flex items-center gap-1.5">
-                                                  <ChevronUp className="h-3 w-3" />
-                                                  <span>Collapse</span>
-                                             </span>
-                                        </button>
-                                        <button
-                                             onClick={(e) => {
-                                                  e.preventDefault();
-                                                  copyCode(codeString, codeIndex);
-                                             }}
-                                             className="opacity-0 group-hover:opacity-100 transition-opacity bg-slate-700 dark:bg-slate-600 hover:bg-slate-600 dark:hover:bg-slate-500 text-white px-3 py-1.5 rounded text-xs flex items-center gap-1.5 shadow-lg"
-                                        >
-                                             {copiedCode === codeIndex ? (
-                                                  <>
-                                                       <Check className="h-3 w-3" />
-                                                       <span>Copied!</span>
-                                                  </>
-                                             ) : (
-                                                  <>
-                                                       <Copy className="h-3 w-3" />
-                                                       <span>Copy</span>
-                                                  </>
-                                             )}
-                                        </button>
-                                   </div>
-                                   <div className="bg-slate-800 dark:bg-slate-700 text-slate-400 dark:text-slate-300 px-4 py-2 rounded-md border border-slate-700 dark:border-slate-600 text-xs font-mono flex items-center justify-between group-open:hidden">
-                                        <span>Code block collapsed ({match ? match[1] : 'python'})</span>
-                                   </div>
-                              </div>
-                         </summary>
-                         <SyntaxHighlighter
-                              language={match ? match[1] : 'python'}
-                              style={vscDarkPlus as any} // eslint-disable-line @typescript-eslint/no-explicit-any
-                              customStyle={{
-                                   margin: '0',
-                                   borderRadius: '0.5rem',
-                                   fontSize: '0.875rem',
-                                   padding: '1rem',
-                                   border: '1px solid #334155',
-                              } as any} // eslint-disable-line @typescript-eslint/no-explicit-any
-                              {...rest}
-                         >
-                              {codeString}
-                         </SyntaxHighlighter>
-                    </details>
-               );
-          },
-          p: ({ children }) => (
-               <p className={`mb-3 last:mb-0 leading-relaxed ${isUserMessage ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>{children}</p>
-          ),
-          strong: ({ children }) => (
-               <strong className={`font-semibold ${isUserMessage ? 'text-white' : 'text-slate-900 dark:text-slate-100'}`}>{children}</strong>
-          ),
-          em: ({ children }) => (
-               <em className={`italic ${isUserMessage ? 'text-slate-200' : 'text-slate-600 dark:text-slate-400'}`}>{children}</em>
-          ),
-          ul: ({ children }) => (
-               <ul className="list-disc list-outside ml-4 mb-3 space-y-1.5">{children}</ul>
-          ),
-          ol: ({ children }) => (
-               <ol className="list-decimal list-outside ml-4 mb-3 space-y-1.5">{children}</ol>
-          ),
-          li: ({ children }) => (
-               <li className={`text-sm leading-relaxed pl-1 ${isUserMessage ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>{children}</li>
-          ),
-          h1: ({ children }) => (
-               <h1 className={`text-xl font-bold mb-3 mt-4 first:mt-0 ${isUserMessage ? 'text-white' : 'text-slate-900 dark:text-slate-100'}`}>{children}</h1>
-          ),
-          h2: ({ children }) => (
-               <h2 className={`text-lg font-bold mb-2 mt-3 first:mt-0 ${isUserMessage ? 'text-white' : 'text-slate-900 dark:text-slate-100'}`}>{children}</h2>
-          ),
-          h3: ({ children }) => (
-               <h3 className={`text-base font-semibold mb-2 mt-2 first:mt-0 ${isUserMessage ? 'text-white' : 'text-slate-800 dark:text-slate-200'}`}>{children}</h3>
-          ),
-          table: ({ children }) => (
-               <div className="overflow-x-auto my-4 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                    <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">{children}</table>
-               </div>
-          ),
-          thead: ({ children }) => (
-               <thead className="bg-slate-50 dark:bg-slate-800">{children}</thead>
-          ),
-          tbody: ({ children }) => (
-               <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-200 dark:divide-slate-700">{children}</tbody>
-          ),
-          tr: ({ children }) => (
-               <tr>{children}</tr>
-          ),
-          th: ({ children }) => (
-               <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-b-2 border-slate-300 dark:border-slate-600 ${isUserMessage ? 'text-slate-200 bg-slate-600' : 'text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800'}`}>{children}</th>
-          ),
-          td: ({ children }) => (
-               <td className={`px-4 py-3 text-sm border-b border-slate-100 dark:border-slate-700 ${isUserMessage ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>{children}</td>
-          ),
-          blockquote: ({ children }) => (
-               <blockquote className={`border-l-4 pl-4 my-3 italic ${isUserMessage ? 'border-slate-500 text-slate-200' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400'}`}>{children}</blockquote>
-          ),
-          hr: () => (
-               <hr className={`my-4 ${isUserMessage ? 'border-slate-500' : 'border-slate-200 dark:border-slate-700'}`} />
-          ),
-     });
-
-     const handleSendMessage = () => {
-          if (!newMessage.trim()) return;
-          onSendMessage(newMessage);
+     const send = (text: string) => {
+          const trimmed = text.trim();
+          if (!trimmed || isLoading || !uploadedData) return;
+          onSendMessage(trimmed);
           setNewMessage("");
-          // Re-enable auto-scroll when user sends a message
           setAutoScrollEnabled(true);
-          // Focus back to input after sending
-          setTimeout(() => inputRef.current?.focus(), 100);
      };
+
+     const canSend = Boolean(newMessage.trim()) && !isLoading && Boolean(uploadedData);
+     const lastIndex = messages.length - 1;
 
      return (
-          <div className="w-full h-full border-l border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3">
-               <div className="h-full flex flex-col">
-                    <div className="flex-shrink-0 pb-3 px-1">
-                         <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                   <Sparkles className="h-5 w-5 text-slate-700 dark:text-slate-300" />
-                                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">AI Assistant</span>
-                              </div>
-                              {messages.length > 0 && onClearConversation && (
-                                   <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={onClearConversation}
-                                        className="h-8 px-2 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
-                                        title="Clear conversation"
-                                   >
-                                        <BrushCleaning className="h-4 w-4" />
-                                   </Button>
-                              )}
-                         </div>
-                    </div>
-                    <div className="flex-1 flex flex-col overflow-y-auto px-1">
-                         {/* Messages */}
-                         <div ref={messagesContainerRef} className="flex-1 overflow-y-auto space-y-3 mb-3 pr-2">
-                              {/* Suggested Prompts - Show when no messages */}
-                              {messages.length === 0 && uploadedData && (
-                                   <div className="flex flex-col items-center justify-center h-full space-y-4 px-4">
-                                        <div className="text-center mb-4">
-                                             <Sparkles className="h-10 w-10 text-slate-400 dark:text-slate-500 mx-auto mb-3" />
-                                             <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-1">Ask me anything about your data</h3>
-                                             <p className="text-sm text-slate-500 dark:text-slate-400">Try one of these suggestions:</p>
-                                        </div>
-                                        <div className="w-full max-w-md space-y-2">
-                                             <button
-                                                  onClick={() => onSendMessage("Show me a summary of this dataset")}
-                                                  disabled={isLoading}
-                                                  className="w-full text-left p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors text-sm text-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                                             >
-                                                  <span className="font-medium">Show me a summary of this dataset</span>
-                                             </button>
-                                             <button
-                                                  onClick={() => onSendMessage("Remove rows with missing values")}
-                                                  disabled={isLoading}
-                                                  className="w-full text-left p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors text-sm text-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                                             >
-                                                  <span className="font-medium">Remove rows with missing values</span>
-                                             </button>
-                                             <button
-                                                  onClick={() => onSendMessage("Create a chart showing the top 10 values")}
-                                                  disabled={isLoading}
-                                                  className="w-full text-left p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors text-sm text-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                                             >
-                                                  <span className="font-medium">Create a chart showing the top 10 values</span>
-                                             </button>
+          <div className="flex h-full w-full flex-col bg-background">
+               <div className="flex h-10 shrink-0 items-center justify-between pl-4 pr-2">
+                    <h2 className="text-xs font-medium text-muted-foreground">Assistant</h2>
+                    {messages.length > 0 && onClearConversation && (
+                         <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={onClearConversation}
+                              disabled={isLoading}
+                              aria-label="Start a new conversation"
+                              title="New conversation"
+                              className="size-7 text-muted-foreground hover:text-foreground"
+                         >
+                              <SquarePen />
+                         </Button>
+                    )}
+               </div>
+
+               <div ref={messagesContainerRef} className="min-h-0 flex-1 overflow-y-auto px-4">
+                    {messages.length === 0 ? (
+                         <div className="flex h-full flex-col justify-end pb-4">
+                              {uploadedData ? (
+                                   <div>
+                                        <p className="text-sm font-medium">What should we do with this data?</p>
+                                        <p className="mt-1 text-sm text-muted-foreground text-pretty">
+                                             Jade writes and runs pandas code on{" "}
+                                             <span className="font-medium text-foreground">{uploadedData.filename}</span>, then
+                                             explains the result.
+                                        </p>
+                                        <div className="mt-4 space-y-1.5">
+                                             {SUGGESTIONS.map(({ icon: Icon, label }) => (
+                                                  <button
+                                                       key={label}
+                                                       onClick={() => send(label)}
+                                                       disabled={isLoading}
+                                                       className="flex w-full items-center gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-left text-sm transition-colors duration-150 hover:border-input hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                                                  >
+                                                       <Icon className="size-4 shrink-0 text-muted-foreground" />
+                                                       {label}
+                                                  </button>
+                                             ))}
                                         </div>
                                    </div>
+                              ) : (
+                                   <div className="pb-2">
+                                        <p className="text-sm font-medium">No dataset yet</p>
+                                        <p className="mt-1 text-sm text-muted-foreground text-pretty">
+                                             Upload a file or load the sample data. Then ask Jade to clean, explain, or chart it.
+                                        </p>
+                                   </div>
                               )}
+                         </div>
+                    ) : (
+                         <div className="space-y-5 py-3">
+                              {messages.map((message, index) => {
+                                   const isStreamingPlaceholder =
+                                        message.role === "assistant" && !message.content && isLoading && index === lastIndex;
 
-                              {messages.map((message, index) => (
-                                   <div key={index} className="space-y-2">
-                                        {/* Message Content */}
-                                        <div
-                                             className={message.role === 'user'
-                                                  ? 'p-3 rounded-lg shadow-sm bg-slate-700 dark:bg-slate-800 text-white ml-8 border border-slate-600 dark:border-slate-700'
-                                                  : 'py-1'
-                                             }
-                                        >
-                                             <div className="prose prose-sm max-w-none">
-                                                  <ReactMarkdown
-                                                       components={getMarkdownComponents(message.role === 'user')}
-                                                       remarkPlugins={[remarkGfm]}
-                                                  >
+                                   if (message.role === "user") {
+                                        return (
+                                             <div key={index} className="animate-message-in flex justify-end">
+                                                  <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-lg bg-secondary px-3 py-2 text-sm leading-relaxed">
                                                        {message.content}
-                                                  </ReactMarkdown>
-                                             </div>
-                                        </div>
-
-                                        {/* Error Status */}
-                                        {message.error && (
-                                             <div className="mr-8 ml-4">
-                                                  <div className="bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-300 p-3 rounded-lg text-sm flex items-center gap-2 border border-red-200 dark:border-red-800 shadow-sm">
-                                                       <span>✕</span>
-                                                       <span className="font-medium">Error: {message.error}</span>
                                                   </div>
                                              </div>
-                                        )}
-                                   </div>
-                              ))}
-                              {/* Invisible element at the end to scroll to */}
+                                        );
+                                   }
+
+                                   return (
+                                        <div key={index} className="animate-message-in text-sm leading-relaxed text-foreground">
+                                             {isStreamingPlaceholder ? (
+                                                  <TypingIndicator />
+                                             ) : (
+                                                  message.content && (
+                                                       <div className="break-words">
+                                                            <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
+                                                                 {message.content}
+                                                            </ReactMarkdown>
+                                                       </div>
+                                                  )
+                                             )}
+
+                                             {(message.data_updated || message.chart_data) && (
+                                                  <div className="mt-3 flex flex-wrap gap-1.5">
+                                                       {message.data_updated && (
+                                                            <span className="inline-flex items-center gap-1.5 rounded-md bg-selection px-2 py-1 text-xs font-medium text-selection-foreground">
+                                                                 <CheckCircle2 className="size-3.5" />
+                                                                 Table updated
+                                                            </span>
+                                                       )}
+                                                       {message.chart_data && (
+                                                            <button
+                                                                 onClick={onOpenDashboard}
+                                                                 className="inline-flex items-center gap-1.5 rounded-md bg-selection px-2 py-1 text-xs font-medium text-selection-foreground transition-opacity hover:opacity-80"
+                                                            >
+                                                                 <BarChart3 className="size-3.5" />
+                                                                 Chart added · View dashboard
+                                                            </button>
+                                                       )}
+                                                  </div>
+                                             )}
+
+                                             {message.error && (
+                                                  <div
+                                                       role="alert"
+                                                       className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-[13px] text-destructive"
+                                                  >
+                                                       <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                                                       <span className="leading-snug">{message.error}</span>
+                                                  </div>
+                                             )}
+                                        </div>
+                                   );
+                              })}
                               <div ref={messagesEndRef} />
                          </div>
+                    )}
+               </div>
 
-                         {/* Loading Indicator */}
-                         {isLoading && (
-                              <div className="flex items-center justify-center py-2">
-                                   <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400">
-                                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-300 dark:border-slate-600 border-t-slate-700 dark:border-t-slate-300"></div>
-                                        <span className="text-sm font-medium">AI is thinking...</span>
-                                   </div>
-                              </div>
+               {/* Composer */}
+               <div className="shrink-0 px-3 pb-3 pt-1">
+                    <div
+                         className={cn(
+                              "rounded-xl border bg-card transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/15",
+                              !uploadedData && "opacity-60"
                          )}
-
-                         {/* Input */}
-                         <div className="space-y-2">
-                              {/* Selected File Indicator */}
-                              <div className="flex items-center justify-between">
-                                   {uploadedData ? (
-                                        <div className="flex items-center gap-2 text-xs">
-                                             <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg font-medium truncate max-w-[200px] border border-slate-200 dark:border-slate-700" title={uploadedData.filename}>
+                    >
+                         <textarea
+                              ref={inputRef}
+                              value={newMessage}
+                              rows={1}
+                              onChange={(e) => setNewMessage(e.target.value)}
+                              onKeyDown={(e) => {
+                                   if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                                        e.preventDefault();
+                                        send(newMessage);
+                                   }
+                              }}
+                              placeholder={uploadedData ? "Ask Jade to clean, analyze, or chart…" : "Upload a dataset to start"}
+                              disabled={!uploadedData}
+                              aria-label="Message Jade"
+                              className="block min-h-9 max-h-40 w-full resize-none bg-transparent px-3 pt-2.5 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+                         />
+                         <div className="flex items-center justify-between gap-2 pb-2 pl-3 pr-2">
+                              <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                                   {uploadedData && (
+                                        <>
+                                             <FileSpreadsheet className="size-3.5 shrink-0" />
+                                             <span className="truncate" title={uploadedData.filename}>
                                                   {uploadedData.filename}
                                              </span>
-                                        </div>
-                                   ) : (
-                                        <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-800">
-                                             <span className="font-medium">⚠ No file selected</span>
-                                        </div>
+                                        </>
                                    )}
-                              </div>
-
-                              <div className="flex gap-2">
-                                   <Input
-                                        ref={inputRef}
-                                        value={newMessage}
-                                        onChange={(e) => setNewMessage(e.target.value)}
-                                        placeholder={uploadedData ? "Ask about your data..." : "Select a file first..."}
-                                        onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
-                                        disabled={isLoading || !uploadedData}
-                                        className="border-slate-300 dark:border-slate-700 focus:border-slate-400 dark:focus:border-slate-500 focus:ring-slate-400 dark:focus:ring-slate-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                                   />
-                                   <Button
-                                        onClick={handleSendMessage}
-                                        size="icon"
-                                        disabled={isLoading || !newMessage.trim() || !uploadedData}
-                                        className="bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 text-white"
-                                   >
-                                        <Send className="h-4 w-4" />
-                                   </Button>
-                              </div>
+                              </span>
+                              <Button
+                                   size="icon-sm"
+                                   onClick={() => send(newMessage)}
+                                   disabled={!canSend}
+                                   aria-label="Send message"
+                                   className="size-7 shrink-0 rounded-lg"
+                              >
+                                   <ArrowUp />
+                              </Button>
                          </div>
                     </div>
                </div>

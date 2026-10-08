@@ -37,6 +37,10 @@ def dataframe_to_json_safe(df: pd.DataFrame) -> dict:
                 lambda x: str(x) if isinstance(x, (datetime, date, pd.Timestamp)) else x
             )
     
+    # NaN / NaT / ±inf are not valid JSON; send them as null
+    df_copy = df_copy.replace([float("inf"), float("-inf")], None)
+    df_copy = df_copy.astype(object).where(pd.notna(df_copy), None)
+
     return {
         "data": df_copy.to_dict(orient="records"),
         "columns": df.columns.tolist(),
