@@ -1,0 +1,12 @@
+{
+  "name": "jade-ai-demo-video",
+  "private": true,
+  "type": "module",
+  "description": "Records the Jade AI demo video by driving the live app in headless Chrome",
+  "scripts": {
+    "record": "node record.mjs"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.30.0"
+  }
+}
