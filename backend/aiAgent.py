@@ -337,7 +337,7 @@ This keeps only the first occurrence of each unique row combination."
                 model=self.model,
                 messages=messages,
                 stream=True,
-                temperature=0.7,
+                temperature=0.2,  # low: generated code should be repeatable
                 max_tokens=2048
             )
             
