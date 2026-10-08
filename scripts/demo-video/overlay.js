@@ -16,14 +16,14 @@ export function installOverlay() {
       z-index: 2147483646; animation: demo-ripple .55s cubic-bezier(.22,1,.36,1) forwards; }
     @keyframes demo-ripple { from { transform: scale(.25); opacity: 1 } to { transform: scale(1.2); opacity: 0 } }
     #demo-caption { position: fixed; bottom: 34px; transform: translate(-50%, 10px); padding: 13px 24px;
-      border-radius: 14px; background: rgba(11,13,12,.88); color: #f1f4f2; border: 1px solid rgba(255,255,255,.09);
+      border-radius: 14px; background: rgba(255,255,255,.96); color: #121a16; border: 1px solid rgba(0,0,0,.08);
       font: 600 26px/1.3 var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif; letter-spacing: -.01em;
-      white-space: nowrap; box-shadow: 0 10px 34px rgba(0,0,0,.35); opacity: 0; pointer-events: none;
+      white-space: nowrap; box-shadow: 0 12px 36px rgba(0,0,0,.45); opacity: 0; pointer-events: none;
       z-index: 2147483645; transition: opacity .28s ease-out, transform .4s cubic-bezier(.22,1,.36,1); }
     #demo-caption.show { opacity: 1; transform: translate(-50%, 0); }
     #demo-badge { position: fixed; top: 60px; left: 50%; transform: translate(-50%, -6px); display: flex;
-      align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; background: rgba(11,13,12,.82);
-      color: #cfd6d2; border: 1px solid rgba(255,255,255,.09); font: 500 14px/1 var(--font-geist-sans), system-ui, sans-serif;
+      align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.96);
+      color: #33403a; border: 1px solid rgba(0,0,0,.08); box-shadow: 0 6px 20px rgba(0,0,0,.35); font: 500 14px/1 var(--font-geist-sans), system-ui, sans-serif;
       opacity: 0; pointer-events: none; z-index: 2147483645; transition: opacity .25s, transform .3s; }
     #demo-badge.show { opacity: 1; transform: translate(-50%, 0); }
     #demo-badge svg { width: 14px; height: 14px; }
